@@ -1,0 +1,1438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Qargo Academy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Qargo palette — dark grey chrome + bright Qargo green as the sole accent. */
+      --brand-950: #0A0B0D;
+      --brand-900: #17181B;   /* primary dark surface (sidebar, headings, brand mark) */
+      --brand-800: #23252A;
+      --brand-700: #3A3D44;   /* tertiary dark grey — small text, subtle labels */
+      --brand-600: #00E85B;   /* QARGO GREEN — primary action, progress, accent */
+      --brand-500: #00C44C;   /* darker green — button hover */
+      --brand-100: #BDF8D0;   /* soft green chip bg */
+      --brand-50:  #EBFDF1;   /* barely-there green tint */
+
+      --ink-900: #17181B;
+      --ink-700: #3A3D44;
+      --ink-500: #6B7076;
+      --ink-300: #A3A7AD;
+      --ink-100: #DDE0E4;
+
+      --surface:   #FFFFFF;
+      --surface-2: #F7F7F8;
+      --border:    #E5E7EB;
+
+      --good:   #10B981;
+      --bad:    #E04D4D;
+      --yellow: #FFC43D;
+
+      --radius: 14px;
+      --radius-lg: 20px;
+
+      /* Alias kept for back-compat — same as --brand-600. */
+      --accent-lime: #00E85B;
+      --accent-lime-soft: rgba(0, 232, 91, 0.20);
+
+      --header-h: 68px;
+      --shadow-sm: 0 1px 2px rgba(10,11,13,.04), 0 1px 1px rgba(10,11,13,.03);
+      --shadow-md: 0 6px 18px rgba(10,11,13,.08);
+      --shadow-lg: 0 18px 48px rgba(10,11,13,.14);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--surface); color: var(--ink-900); }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      line-height: 1.55;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Links stay readable dark grey, with a Qargo-green underline on hover. */
+    a { color: var(--brand-900); text-decoration: none; }
+    a:hover {
+      text-decoration: underline;
+      text-decoration-color: var(--brand-600);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+    }
+
+    /* Header */
+    header {
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 20px;
+      position: sticky; top: 0;
+      background: rgba(255,255,255,.9);
+      backdrop-filter: saturate(180%) blur(10px);
+      z-index: 10;
+    }
+    header .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; color: var(--brand-900);
+      letter-spacing: -0.01em; font-size: 17px;
+    }
+    header .brand:hover { text-decoration: none; }
+    header .brand .mark {
+      width: 30px; height: 30px; border-radius: 9px;
+      background: var(--brand-900);
+      color: var(--brand-600);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+    header .brand .sub { color: var(--ink-500); font-weight: 500; }
+    header .spacer { flex: 1; }
+    header .crumbs { color: var(--ink-500); font-size: 14px; }
+    header .crumbs a { color: inherit; }
+    main { max-width: 1040px; margin: 0 auto; padding: 40px 28px 80px; }
+    main.course-view { max-width: none; margin: 0; padding: 0; }
+
+    /* ------------------------------------------------------------------ */
+    /* Course view — Rise 360 / Articulate feel                           */
+    /* Dark sticky sidebar with a numbered progress track, spacious main. */
+    /* ------------------------------------------------------------------ */
+    .course-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      min-height: calc(100vh - var(--header-h));
+    }
+    .course-sidebar {
+      background: var(--brand-900);
+      color: #fff;
+      padding: 32px 28px 40px;
+      position: sticky;
+      top: var(--header-h);
+      align-self: start;
+      height: calc(100vh - var(--header-h));
+      overflow-y: auto;
+      border-right: 1px solid #0A1E3A;
+    }
+    .course-sidebar .back-link {
+      color: rgba(255,255,255,.72);
+      font-size: 13px;
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-bottom: 24px;
+    }
+    .course-sidebar .back-link:hover { color: #fff; }
+    .course-sidebar .eyebrow {
+      font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+      color: rgba(255,255,255,.55); font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .course-sidebar .course-title {
+      font-size: 22px; line-height: 1.2; font-weight: 700;
+      color: #fff; margin: 0 0 18px; letter-spacing: -0.01em;
+    }
+    .course-sidebar .pct-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+      color: rgba(255,255,255,.7); font-weight: 700;
+      margin: 0 0 10px;
+    }
+    .course-sidebar .pct-track {
+      height: 4px; border-radius: 999px;
+      background: rgba(255,255,255,.14);
+      overflow: hidden;
+      margin-bottom: 22px;
+    }
+    .course-sidebar .pct-fill {
+      height: 100%; width: 0%;
+      background: var(--accent-lime);
+      transition: width .3s ease;
+    }
+
+    /* Numbered section list with vertical track */
+    .sections {
+      list-style: none; padding: 0; margin: 0;
+      position: relative;
+    }
+    .sections::before {
+      content: "";
+      position: absolute;
+      left: 11px; top: 8px; bottom: 8px;
+      width: 2px; background: rgba(255,255,255,.14);
+    }
+    .sections li {
+      position: relative;
+      padding: 10px 12px 10px 38px;
+      border-radius: 10px;
+      cursor: pointer;
+      color: rgba(255,255,255,.78);
+      font-size: 14px; line-height: 1.4;
+      transition: background .15s, color .15s;
+    }
+    .sections li:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .sections li .dot {
+      position: absolute;
+      left: 4px; top: 13px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--brand-900);
+      border: 2px solid rgba(255,255,255,.35);
+      box-sizing: border-box;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .sections li.done .dot {
+      background: var(--accent-lime);
+      border-color: var(--accent-lime);
+    }
+    .sections li.current {
+      background: rgba(255,255,255,.08);
+      color: #fff;
+    }
+    .sections li.current .dot {
+      border-color: var(--accent-lime);
+      box-shadow: 0 0 0 4px var(--accent-lime-soft);
+    }
+    .sections li .status {
+      display: block;
+      font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+      color: rgba(255,255,255,.45); margin-top: 2px; font-weight: 600;
+    }
+    .sections li.done .status    { color: var(--accent-lime); }
+    .sections li.current .status { color: rgba(255,255,255,.85); }
+
+    /* Main reading column
+       Prose stays comfortable at ~820px; embed-heavy sections break out wider
+       so demos/videos aren't cramped. */
+    .course-main {
+      padding: 48px 72px 96px;
+      max-width: 1120px;
+      width: 100%;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    .course-main .course-hero,
+    .course-main .section-wrap {
+      max-width: 820px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .course-main .section-wrap.has-embed {
+      max-width: 1040px;
+    }
+    /* CSS-only fallback for browsers with :has() — keeps behaviour even when the
+       renderer forgets to add .has-embed manually. */
+    @supports selector(:has(*)) {
+      .course-main .section-wrap:has(.block.embed) { max-width: 1040px; }
+    }
+    .course-main .course-hero {
+      margin-bottom: 40px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+    .course-main .course-hero .meta {
+      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--brand-900); font-weight: 700;
+      margin-bottom: 10px;
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .course-main .course-hero .meta::before {
+      content: ""; width: 10px; height: 10px; border-radius: 2px;
+      background: var(--brand-600);
+    }
+    .course-main .course-hero h1 {
+      font-size: 40px; line-height: 1.1; margin: 0 0 12px;
+    }
+    .course-main .course-hero p {
+      color: var(--ink-700); font-size: 16px; max-width: 640px; margin: 0;
+    }
+
+    .section-wrap {
+      scroll-margin-top: calc(var(--header-h) + 20px);
+      padding: 8px 0 24px;
+    }
+    .section-wrap .section-label {
+      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--brand-900); font-weight: 700;
+      margin-bottom: 6px;
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .section-wrap .section-label::before {
+      content: ""; width: 10px; height: 10px; border-radius: 2px;
+      background: var(--brand-600);
+    }
+    .section-wrap h2.section-title {
+      margin: 0 0 18px;
+      font-size: 28px; line-height: 1.2;
+      color: var(--brand-900); font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    /* Inside the course view we don't need the old small pill, hide it for tidiness */
+    .course-main .block > .kind { display: none; }
+    .course-main .block {
+      margin: 0;
+      padding: 22px 26px;
+    }
+
+    /* Prev/Next navigation at the end of the course */
+    .course-nav {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 36px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .course-nav a, .course-nav button {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--ink-900);
+      padding: 12px 18px; border-radius: 12px;
+      font: inherit; font-weight: 600; cursor: pointer;
+      text-decoration: none;
+    }
+    .course-nav a:hover, .course-nav button:hover {
+      border-color: var(--brand-600); color: var(--brand-700);
+    }
+
+    @media (max-width: 900px) {
+      .course-layout { grid-template-columns: 1fr; }
+      .course-sidebar {
+        position: static; height: auto;
+        padding: 22px 20px;
+      }
+      .sections li { padding: 8px 10px 8px 34px; }
+      .course-main { padding: 32px 22px 72px; }
+      .course-main .course-hero h1 { font-size: 30px; }
+    }
+
+    h1 {
+      font-size: 34px; line-height: 1.15; margin: 0 0 8px;
+      font-weight: 700; letter-spacing: -0.02em; color: var(--brand-900);
+    }
+    h2 { font-size: 22px; margin: 36px 0 14px; font-weight: 700; color: var(--brand-900); letter-spacing: -0.01em; }
+    p.lead { color: var(--ink-500); margin: 0 0 28px; font-size: 16px; max-width: 640px; }
+
+    /* Hero */
+    .hero {
+      margin: -8px 0 36px;
+      padding: 40px 40px 36px;
+      border-radius: var(--radius-lg);
+      background:
+        radial-gradient(1200px 320px at 110% -20%, rgba(0,232,91,.22), transparent 60%),
+        radial-gradient(900px 260px at -10% 120%, rgba(23,24,27,.05), transparent 60%),
+        linear-gradient(180deg, var(--brand-50), #fff);
+      border: 1px solid var(--border);
+    }
+    .hero .eyebrow {
+      display: inline-block; font-size: 12px; text-transform: uppercase;
+      letter-spacing: .14em; color: var(--brand-700); font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .hero h1 { margin: 0 0 10px; }
+    .hero p { color: var(--ink-700); font-size: 16px; max-width: 640px; margin: 0; }
+
+    /* Catalog */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+      display: block; color: inherit;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--brand-600);
+      text-decoration: none;
+    }
+    .card .emoji { font-size: 26px; margin-bottom: 12px; }
+    .card h3 {
+      margin: 0 0 6px; font-size: 17px; color: var(--brand-900);
+      font-weight: 700; display: flex; align-items: center; gap: 8px;
+    }
+    .card p { margin: 0; color: var(--ink-500); font-size: 14px; }
+    .card .meta {
+      margin-top: 18px; font-size: 12px; color: var(--ink-500);
+      display: flex; gap: 10px; align-items: center;
+      padding-top: 14px; border-top: 1px solid var(--border);
+    }
+
+    /* Block cards */
+    .block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      margin: 16px 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .block .kind {
+      display: inline-block;
+      font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+      padding: 4px 10px; border-radius: 999px;
+      background: var(--brand-50); color: var(--brand-700); font-weight: 700;
+      margin-bottom: 14px;
+    }
+    .block h3 { margin: 0 0 12px; font-size: 19px; color: var(--brand-900); font-weight: 700; }
+    .block .prose { color: var(--ink-700); font-size: 15px; }
+    .block .prose p { margin: 6px 0; }
+
+    /* Embed (iframes — Storylane demos, virtual environments, etc.) */
+    .embed .frame {
+      position: relative;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--brand-50);
+      margin-top: 14px;
+    }
+    .embed .frame iframe {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      border: 0; display: block;
+    }
+    .embed .caption { margin-top: 10px; font-size: 13px; color: var(--ink-500); }
+    .embed .done-row {
+      display: flex; gap: 10px; align-items: center;
+      margin-top: 14px; flex-wrap: wrap;
+    }
+    .embed .done-btn {
+      background: var(--brand-600); color: var(--brand-900);
+      border: 0; border-radius: 10px;
+      padding: 10px 16px; font: inherit; font-weight: 700;
+      cursor: pointer;
+    }
+    .embed .done-btn:hover { background: var(--brand-500); }
+    .embed .done-btn:disabled { background: var(--good); color: #fff; cursor: default; }
+    .embed .open-new {
+      font-size: 13px; color: var(--brand-700); text-decoration: none;
+      border-bottom: 1px dashed var(--brand-600);
+    }
+
+    /* Quiz */
+    .quiz .options { display: grid; gap: 10px; margin-top: 14px; }
+    .quiz .opt {
+      text-align: left;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--ink-900);
+      padding: 12px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font: inherit; font-weight: 500;
+      transition: border-color .15s, background .15s;
+    }
+    .quiz .opt:hover:not(:disabled) {
+      border-color: var(--brand-600);
+      background: var(--brand-50);
+    }
+    .quiz .opt.correct { border-color: var(--good); background: rgba(16,185,129,.08); }
+    .quiz .opt.wrong   { border-color: var(--bad);  background: rgba(224,77,77,.08); }
+    .quiz .opt:disabled { cursor: default; }
+    .quiz .feedback { margin-top: 12px; font-size: 14px; color: var(--ink-500); }
+    .quiz .feedback.good { color: var(--good); }
+    .quiz .feedback.bad  { color: var(--bad); }
+
+    /* Flashcards */
+    .flash { perspective: 1200px; }
+    .flash .deck { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-top: 14px; }
+    .flash .card-flip {
+      position: relative; height: 150px; cursor: pointer;
+      transform-style: preserve-3d;
+      transition: transform .5s;
+    }
+    .flash .card-flip.flipped { transform: rotateY(180deg); }
+    .flash .face {
+      position: absolute; inset: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; backface-visibility: hidden;
+      box-shadow: var(--shadow-sm); font-weight: 500;
+    }
+    .flash .face.front { color: var(--brand-900); }
+    .flash .back {
+      transform: rotateY(180deg);
+      background: var(--brand-900);
+      color: var(--brand-600); border-color: transparent;
+    }
+    .flash .hint { font-size: 13px; color: var(--ink-500); margin-top: 4px; }
+
+    /* Match */
+    .match .lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 14px; }
+    .match h4 {
+      margin: 0 0 10px; color: var(--ink-500);
+      font-size: 12px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+    }
+    .match .pool, .match .targets { display: grid; gap: 10px; }
+    .match .chip {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 14px;
+      cursor: grab; user-select: none;
+      font-weight: 500; color: var(--brand-900);
+      box-shadow: var(--shadow-sm);
+    }
+    .match .chip:active { cursor: grabbing; }
+    .match .chip.dragging { opacity: .4; }
+    .match .target {
+      background: var(--surface-2);
+      border: 1.5px dashed var(--ink-100);
+      border-radius: 10px;
+      padding: 11px 14px;
+      min-height: 48px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      transition: border-color .15s, background .15s;
+    }
+    .match .target.over    { border-color: var(--brand-600); background: var(--brand-50); }
+    .match .target.correct { border-color: var(--good); border-style: solid; background: rgba(16,185,129,.05); }
+    .match .target.wrong   { border-color: var(--bad);  border-style: solid; background: rgba(224,77,77,.05); }
+    .match .target .label { color: var(--ink-700); font-size: 14px; }
+    .match .target .drop-slot { min-width: 120px; text-align: right; }
+    .match .actions { margin-top: 18px; display: flex; gap: 10px; }
+
+    /* Buttons */
+    button.primary {
+      background: var(--brand-600);
+      color: var(--brand-900); border: none;
+      padding: 11px 18px; border-radius: 10px;
+      cursor: pointer; font-weight: 700; font-size: 14px; font-family: inherit;
+      transition: background .15s, transform .05s;
+      box-shadow: 0 6px 14px rgba(0,232,91,.28);
+    }
+    button.primary:hover { background: var(--brand-500); }
+    button.primary:active { transform: translateY(1px); }
+    button.ghost {
+      background: transparent; color: var(--brand-700);
+      border: 1.5px solid var(--border);
+      padding: 11px 18px; border-radius: 10px;
+      cursor: pointer; font-weight: 600; font-size: 14px; font-family: inherit;
+      transition: border-color .15s, background .15s;
+    }
+    button.ghost:hover { border-color: var(--brand-600); background: var(--brand-50); }
+
+    /* Progress */
+    .progress {
+      height: 6px; background: var(--ink-100); border-radius: 999px; overflow: hidden;
+      margin: 10px 0 28px;
+    }
+    .progress > span {
+      display: block; height: 100%;
+      background: var(--brand-600);
+      transition: width .3s;
+    }
+
+    .back-link { color: var(--ink-500); font-size: 14px; }
+    .back-link:hover { color: var(--brand-900); }
+
+    /* Identity modal */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(11,37,69,.45);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 32px;
+      width: min(440px, 92vw);
+      box-shadow: var(--shadow-lg);
+    }
+    .modal .mark-lg {
+      width: 46px; height: 46px; border-radius: 13px;
+      background: var(--brand-900);
+      color: var(--brand-600); display: grid; place-items: center;
+      font-weight: 800; font-size: 19px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow-md);
+    }
+    .modal h2 { margin: 0 0 6px; font-size: 22px; color: var(--brand-900); font-weight: 700; }
+    .modal p.lead { margin: 0 0 22px; font-size: 14px; color: var(--ink-500); max-width: none; }
+    .modal label { display: block; font-size: 13px; color: var(--ink-700); margin: 14px 0 6px; font-weight: 500; }
+    .modal input {
+      width: 100%; padding: 12px 14px;
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px;
+      color: var(--ink-900); font: inherit; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .modal input:focus,
+    .modal select:focus {
+      border-color: var(--brand-600);
+      box-shadow: 0 0 0 4px rgba(0,232,91,.22);
+    }
+    .modal select {
+      width: 100%; padding: 12px 14px;
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px;
+      color: var(--ink-900); font: inherit; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1.5L6 6.5L11 1.5' stroke='%235A6B82' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 40px;
+    }
+    .modal .role-hint {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--ink-500);
+      min-height: 18px;
+    }
+    .modal .error { color: var(--bad); font-size: 13px; margin-top: 12px; min-height: 18px; }
+    .modal .actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+
+    /* Group headings inside catalog */
+    .group-label {
+      display: flex; align-items: center; gap: 10px;
+      margin: 32px 0 14px; color: var(--brand-900);
+    }
+    .group-label h2 { margin: 0; }
+    .group-label .tag {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+      background: var(--brand-50); color: var(--brand-700);
+      padding: 4px 10px; border-radius: 999px; font-weight: 700;
+    }
+    .group-label .tag.neutral { background: var(--surface-2); color: var(--ink-500); }
+
+    /* Identity chip */
+    .me { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-500); }
+    .me .name { color: var(--brand-900); font-weight: 600; }
+    .me button {
+      background: transparent; border: none; color: var(--ink-500);
+      cursor: pointer; font: inherit; padding: 0;
+    }
+    .me button:hover { color: var(--brand-700); text-decoration: underline; }
+
+    /* Completion pill */
+    .card .done {
+      color: var(--good); font-size: 11px; font-weight: 700;
+      background: rgba(16,185,129,.1);
+      padding: 3px 8px; border-radius: 999px;
+      letter-spacing: .02em;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: var(--brand-900); color: #fff;
+      padding: 12px 20px; border-radius: 12px;
+      font-size: 14px; font-weight: 500; z-index: 200;
+      opacity: 0; transition: opacity .2s;
+      pointer-events: none;
+      box-shadow: var(--shadow-lg);
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 640px) {
+      main { padding: 24px 16px 60px; }
+      .hero { padding: 28px 22px; }
+      h1 { font-size: 28px; }
+      .match .lanes { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="#/" class="brand">
+      <span class="mark">Q</span>
+      <span>Qargo <span class="sub">Academy</span></span>
+    </a>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="spacer"></div>
+    <div class="me" id="me"></div>
+  </header>
+  <main id="app"></main>
+
+  <script>
+  /* =========================================================================
+     REPORTING CONFIG
+     Paste your Cloudflare Worker URL here once deployed (see reporting-worker.js).
+     Leave empty while developing locally — completions still track in localStorage
+     but nothing is sent to Notion.
+     ========================================================================= */
+  const REPORTING_ENDPOINT = ""; // e.g. "https://academy-reporter.<you>.workers.dev"
+
+  /* =========================================================================
+     ROLES
+     From the Qargo Learning Architecture. Each learner picks one role on first
+     visit (and can switch later). Each course declares the roles it's
+     recommended for — courses outside the learner's role are still accessible
+     under "Other courses".
+     ========================================================================= */
+  const ROLES = [
+    { id: "planner",  label: "Planner / Dispatcher",
+      blurb: "At a desk, time-poor — task-specific, step-by-step content." },
+    { id: "manager",  label: "Manager / Admin",
+      blurb: "Self-directed — concepts, config, and reference material." },
+    { id: "driver",   label: "Driver",
+      blurb: "Short, print-friendly units designed for the cab." },
+  ];
+
+  /* =========================================================================
+     COURSE CONTENT
+     Edit this object to add/remove courses and blocks.
+     Each course has: id, title, emoji, description, roles[], blocks[].
+     `roles` is an array of role IDs the course is recommended for.
+     Block types supported: "text", "quiz", "flashcards", "match".
+     ========================================================================= */
+  const COURSES = [
+    {
+      id: "intro-tms",
+      emoji: "🚚",
+      title: "Intro to TMS",
+      description: "Core concepts behind transport management systems.",
+      roles: ["planner", "manager", "driver"],
+      blocks: [
+        {
+          type: "text",
+          title: "What is a TMS?",
+          body: "A Transport Management System (TMS) helps logistics companies plan, execute, and optimize the movement of goods. It ties together orders, trips, drivers, vehicles, and documents in one place."
+        },
+        {
+          type: "quiz",
+          title: "Quick check",
+          question: "Which of these is NOT typically handled by a TMS?",
+          options: [
+            "Trip planning",
+            "Driver payroll tax filing",
+            "Order intake",
+            "Document management"
+          ],
+          correct: 1,
+          explanation: "Payroll tax filing is usually handled by an HR/payroll system, not the TMS."
+        },
+        {
+          type: "flashcards",
+          title: "Key terms",
+          cards: [
+            { front: "Order", back: "A customer's request to move goods from A to B." },
+            { front: "Trip", back: "The planned execution — one or more orders grouped for a vehicle/driver." },
+            { front: "Leg", back: "A single movement segment within a trip." },
+            { front: "POD", back: "Proof of Delivery — signed evidence the goods arrived." }
+          ]
+        },
+        {
+          type: "match",
+          title: "Match the term to its definition",
+          pairs: [
+            { term: "Dispatcher", definition: "Assigns trips to drivers and vehicles" },
+            { term: "Planner", definition: "Builds the schedule from orders" },
+            { term: "Driver app", definition: "Mobile tool for executing trips" },
+            { term: "Invoice", definition: "Bill sent to the customer after delivery" }
+          ]
+        }
+      ]
+    },
+    {
+      id: "order-lifecycle",
+      emoji: "📦",
+      title: "Order Lifecycle",
+      description: "From customer request to invoice — every step in between.",
+      roles: ["planner", "manager"],
+      blocks: [
+        {
+          type: "text",
+          title: "Five stages",
+          body: "Every order moves through roughly five stages: Intake → Planning → Execution → Proof → Billing. Understanding these stages helps you troubleshoot where things go wrong."
+        },
+        {
+          type: "quiz",
+          title: "Order the stages",
+          question: "Which stage comes immediately after Planning?",
+          options: ["Intake", "Execution", "Billing", "Proof"],
+          correct: 1,
+          explanation: "Once an order is planned, it moves to Execution (the driver actually performs the trip)."
+        },
+        {
+          type: "flashcards",
+          title: "Stage definitions",
+          cards: [
+            { front: "Intake", back: "Order is received from the customer (EDI, email, portal, manual)." },
+            { front: "Planning", back: "Order is assigned to a trip, vehicle and driver." },
+            { front: "Execution", back: "The driver performs the pickup and delivery." },
+            { front: "Proof", back: "POD is captured — signature, photo, or timestamp." },
+            { front: "Billing", back: "Invoice is generated based on agreed rates." }
+          ]
+        },
+        {
+          type: "embed",
+          kind: "Interactive demo",
+          title: "Walk through the Qargo platform",
+          // Share URL + ?embed=inline tells Storylane to scale the demo to fill the
+          // iframe. Without it, Storylane renders a small "preview card" layout.
+          url: "https://qargo.storylane.io/share/platform-page-product-tour?embed=inline",
+          ratio: "16 / 9",
+          caption: "Click through the demo, then mark complete."
+        }
+      ]
+    },
+    {
+      id: "driver-apps",
+      emoji: "📱",
+      title: "Driver Apps 101",
+      description: "How drivers use mobile apps to run their day.",
+      roles: ["driver", "planner"],
+      blocks: [
+        {
+          type: "text",
+          title: "Why driver apps matter",
+          body: "The driver app is the single point of truth for what's actually happening in the field. Good data in means good planning, good invoicing, and happy customers."
+        },
+        {
+          type: "embed",
+          kind: "Video",
+          title: "Driver app in 60 seconds",
+          // Clueso: in the video's Share panel, choose "Embed" and copy the iframe src
+          // (looks like https://app.clueso.io/embed/<id> or https://share.clueso.io/<id>).
+          // Works the same for Loom, YouTube (use /embed/<id>), Vimeo, Wistia, etc.
+          url: "https://app.clueso.io/embed/REPLACE_WITH_CLUESO_VIDEO_ID",
+          ratio: "16 / 9",
+          caption: "Watch the walkthrough, then continue below."
+        },
+        {
+          type: "match",
+          title: "Match the action to its timing",
+          pairs: [
+            { term: "Arrived at pickup", definition: "When driver reaches the loading location" },
+            { term: "Loaded", definition: "When cargo is on the vehicle" },
+            { term: "Delivered", definition: "When cargo is handed to the receiver" },
+            { term: "POD signed", definition: "When the customer signs for the goods" }
+          ]
+        },
+        {
+          type: "quiz",
+          title: "Why does accurate timing matter?",
+          question: "What's the biggest downstream impact of a driver skipping status updates?",
+          options: [
+            "The app uses more battery",
+            "Planners can't see progress, so customers get stale ETAs",
+            "The vehicle won't start next time",
+            "None — it's fine if the driver just sends an email later"
+          ],
+          correct: 1,
+          explanation: "Live status drives ETAs, alerts, and customer visibility. Skipping updates breaks the whole feedback loop."
+        }
+      ]
+    }
+  ];
+
+  /* =========================================================================
+     LEARNER IDENTITY + REPORTING
+     No login — we ask for name/email/company once and stash in localStorage.
+     A course is reported to Notion exactly once per browser (guarded by the
+     "academy.completed" key) when progress hits 100%.
+     ========================================================================= */
+  const LS_LEARNER   = "academy.learner";
+  const LS_COMPLETED = "academy.completed";
+
+  function getLearner() {
+    try { return JSON.parse(localStorage.getItem(LS_LEARNER) || "null"); }
+    catch { return null; }
+  }
+  function setLearner(l) { localStorage.setItem(LS_LEARNER, JSON.stringify(l)); renderMe(); }
+  function switchProfile() {
+    // Keep the existing learner pre-filled and let them change any field.
+    showIdentityModal(() => route());
+  }
+  function roleLabel(id) {
+    const r = ROLES.find(r => r.id === id);
+    return r ? r.label : id;
+  }
+  function getCompleted() {
+    try { return JSON.parse(localStorage.getItem(LS_COMPLETED) || "{}"); }
+    catch { return {}; }
+  }
+  function markCompleted(courseId) {
+    const all = getCompleted();
+    if (all[courseId]) return false;
+    all[courseId] = new Date().toISOString();
+    localStorage.setItem(LS_COMPLETED, JSON.stringify(all));
+    return true;
+  }
+
+  function renderMe() {
+    const me = document.getElementById("me");
+    const l = getLearner();
+    me.innerHTML = l
+      ? `<span><span class="name">${escape(l.name)}</span> · ${escape(roleLabel(l.role))} · ${escape(l.company)}</span>
+         <button id="switch-me" title="Change your name, company, or role">switch profile</button>`
+      : "";
+    const sw = document.getElementById("switch-me");
+    if (sw) sw.addEventListener("click", switchProfile);
+  }
+
+  function showIdentityModal(onDone) {
+    if (document.getElementById("id-modal")) return;
+    const existing = getLearner() || {};
+    const isEdit = !!existing.name;
+    const roleOptions = ROLES.map(r =>
+      `<option value="${r.id}" ${existing.role === r.id ? "selected" : ""}>${escape(r.label)}</option>`
+    ).join("");
+    const back = document.createElement("div");
+    back.className = "modal-backdrop";
+    back.id = "id-modal";
+    back.innerHTML = `
+      <div class="modal">
+        <div class="mark-lg">Q</div>
+        <h2>${isEdit ? "Switch profile" : "Welcome to Qargo Academy"}</h2>
+        <p class="lead">Tell us who you are so we can record your progress and show the right content for your role.</p>
+        <label for="id-name">Full name</label>
+        <input id="id-name" autocomplete="name" value="${escape(existing.name || "")}" />
+        <label for="id-email">Work email</label>
+        <input id="id-email" type="email" autocomplete="email" value="${escape(existing.email || "")}" />
+        <label for="id-company">Company</label>
+        <input id="id-company" autocomplete="organization" value="${escape(existing.company || "")}" />
+        <label for="id-role">Your role</label>
+        <select id="id-role">
+          <option value="" ${!existing.role ? "selected" : ""} disabled>Pick the role closest to what you do</option>
+          ${roleOptions}
+        </select>
+        <div class="role-hint" id="id-role-hint"></div>
+        <div class="error" id="id-error"></div>
+        <div class="actions">
+          <button class="primary" id="id-save">${isEdit ? "Save" : "Start learning"}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(back);
+    const nameEl = document.getElementById("id-name");
+    const roleEl = document.getElementById("id-role");
+    const hintEl = document.getElementById("id-role-hint");
+    const updateHint = () => {
+      const r = ROLES.find(r => r.id === roleEl.value);
+      hintEl.textContent = r ? r.blurb : "";
+    };
+    roleEl.addEventListener("change", updateHint);
+    updateHint();
+    (isEdit ? roleEl : nameEl).focus();
+    const submit = () => {
+      const name = document.getElementById("id-name").value.trim();
+      const email = document.getElementById("id-email").value.trim();
+      const company = document.getElementById("id-company").value.trim();
+      const role = roleEl.value;
+      const err = document.getElementById("id-error");
+      if (!name || !email || !company) { err.textContent = "Name, email, and company are required."; return; }
+      if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Please enter a valid email."; return; }
+      if (!role) { err.textContent = "Please pick your role."; return; }
+      setLearner({ name, email, company, role });
+      back.remove();
+      if (onDone) onDone();
+    };
+    document.getElementById("id-save").addEventListener("click", submit);
+    back.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  }
+
+  function toast(msg) {
+    let t = document.querySelector(".toast");
+    if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); }
+    t.textContent = msg;
+    requestAnimationFrame(() => t.classList.add("show"));
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove("show"), 2500);
+  }
+
+  async function reportCompletion(course) {
+    const learner = getLearner();
+    if (!learner) return;
+    if (!markCompleted(course.id)) return;     // already reported on this browser
+    toast("Course completed 🎉");
+    if (!REPORTING_ENDPOINT) return;           // offline / not configured
+    try {
+      await fetch(REPORTING_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "course_completed",
+          learner,
+          role: learner.role || null,
+          roleLabel: learner.role ? roleLabel(learner.role) : null,
+          course: { id: course.id, title: course.title },
+          completedAt: new Date().toISOString()
+        })
+      });
+    } catch (e) { console.warn("reporting failed:", e); }
+  }
+
+  /* =========================================================================
+     ROUTING + RENDERING
+     ========================================================================= */
+  const app = document.getElementById("app");
+  const crumbs = document.getElementById("crumbs");
+
+  function route() {
+    const hash = location.hash || "#/";
+    if (hash.startsWith("#/course/")) {
+      const id = hash.slice("#/course/".length);
+      const course = COURSES.find(c => c.id === id);
+      if (course) renderCourse(course);
+      else renderNotFound();
+    } else {
+      renderCatalog();
+    }
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  window.addEventListener("hashchange", route);
+
+  function renderCatalog() {
+    crumbs.textContent = "";
+    app.classList.remove("course-view");
+    const learner = getLearner();
+    const role = learner?.role;
+    const done = getCompleted();
+
+    const recommended = role ? COURSES.filter(c => (c.roles || []).includes(role)) : [];
+    const others = role ? COURSES.filter(c => !(c.roles || []).includes(role)) : COURSES;
+
+    app.innerHTML = `
+      <section class="hero">
+        <div class="eyebrow">Qargo Academy</div>
+        <h1>Learn the Qargo way.</h1>
+        <p>Short, focused courses that help your team get the most from Qargo — from order entry to invoicing, and everything in between.</p>
+      </section>
+      ${role ? `
+        <div class="group-label">
+          <h2>Recommended for you</h2>
+          <span class="tag">${escape(roleLabel(role))}</span>
+        </div>
+        <div class="grid" id="catalog-recommended"></div>
+      ` : ""}
+      ${others.length ? `
+        <div class="group-label">
+          <h2>${role ? "Other courses" : "Courses"}</h2>
+          ${role ? '<span class="tag neutral">Outside your role</span>' : ""}
+        </div>
+        <div class="grid" id="catalog-others"></div>
+      ` : ""}
+    `;
+
+    const renderInto = (selector, list) => {
+      const grid = document.querySelector(selector);
+      if (!grid) return;
+      if (!list.length) {
+        grid.outerHTML = `<p class="lead" style="margin-top:-8px">No courses yet for this role — check back soon.</p>`;
+        return;
+      }
+      for (const c of list) {
+        const card = document.createElement("a");
+        card.className = "card";
+        card.href = `#/course/${c.id}`;
+        card.innerHTML = `
+          <div class="emoji">${c.emoji || "📘"}</div>
+          <h3>${escape(c.title)}${done[c.id] ? ' <span class="done">✓ Completed</span>' : ""}</h3>
+          <p>${escape(c.description || "")}</p>
+          <div class="meta">
+            <span>${c.blocks.length} blocks</span>
+            <span>·</span>
+            <span>${countKinds(c)}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+    };
+    renderInto("#catalog-recommended", recommended);
+    renderInto("#catalog-others", others);
+  }
+
+  function countKinds(course) {
+    const kinds = {};
+    for (const b of course.blocks) kinds[b.type] = (kinds[b.type] || 0) + 1;
+    const label = { text: "reading", quiz: "quiz", flashcards: "flashcards", match: "match" };
+    return Object.entries(kinds).map(([k, n]) => `${n} ${label[k] || k}`).join(" · ");
+  }
+
+  /* Derive a human-readable section title from a block, even when block.title is absent. */
+  function sectionTitleOf(block, idx) {
+    if (block.title) return block.title;
+    const fallback = {
+      text: "Overview",
+      quiz: "Knowledge check",
+      flashcards: "Flashcards",
+      match: "Match the pairs",
+      embed: block.kind || "Interactive",
+    }[block.type] || "Section";
+    return fallback;
+  }
+
+  function renderCourse(course) {
+    // Course view uses a two-column layout — break out of the default max-width.
+    crumbs.textContent = "";
+    app.classList.add("course-view");
+
+    const total = course.blocks.length;
+
+    // Build sidebar section items and the main content at the same time so
+    // indexes line up.
+    const sectionItems = course.blocks.map((b, i) => `
+      <li data-idx="${i}">
+        <span class="dot"></span>
+        <div>
+          <div>${escape(sectionTitleOf(b, i))}</div>
+          <span class="status">Unstarted</span>
+        </div>
+      </li>
+    `).join("");
+
+    const sectionWraps = course.blocks.map((b, i) => `
+      <div class="section-wrap" id="section-${i}" data-idx="${i}">
+        <div class="section-label">Section ${i + 1} of ${total}</div>
+        <h2 class="section-title">${escape(sectionTitleOf(b, i))}</h2>
+        <section class="block" data-block-idx="${i}"></section>
+      </div>
+    `).join("");
+
+    app.innerHTML = `
+      <div class="course-layout">
+        <aside class="course-sidebar">
+          <a href="#/" class="back-link">← All courses</a>
+          <div class="eyebrow">Course</div>
+          <h2 class="course-title">${course.emoji || ""} ${escape(course.title)}</h2>
+          <div class="pct-row">
+            <span id="pct-label">0% complete</span>
+          </div>
+          <div class="pct-track"><div class="pct-fill" id="pct-fill"></div></div>
+          <ol class="sections" id="sections">${sectionItems}</ol>
+        </aside>
+        <div class="course-main">
+          <div class="course-hero">
+            <div class="meta">${total} section${total === 1 ? "" : "s"}</div>
+            <h1>${course.emoji || ""} ${escape(course.title)}</h1>
+            ${course.description ? `<p>${escape(course.description)}</p>` : ""}
+          </div>
+          ${sectionWraps}
+          <div class="course-nav">
+            <a href="#/">← All courses</a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const completion = new Array(total).fill(false);
+    const sectionEls = Array.from(document.querySelectorAll(".section-wrap"));
+    const sidebarLis = Array.from(document.querySelectorAll("#sections li"));
+    const pctFill = document.getElementById("pct-fill");
+    const pctLabel = document.getElementById("pct-label");
+
+    // Click sidebar entry → smooth-scroll to the corresponding section.
+    sidebarLis.forEach(li => {
+      li.addEventListener("click", () => {
+        const idx = Number(li.dataset.idx);
+        const target = document.getElementById("section-" + idx);
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    // Render each block into its inner .block element and wire completion.
+    course.blocks.forEach((block, i) => {
+      const el = sectionEls[i].querySelector(".block");
+      // Flag sections that host an embed so we can let them break out of the
+      // prose column via CSS (for browsers without :has() support).
+      if (block.type === "embed") sectionEls[i].classList.add("has-embed");
+      const markDone = () => {
+        if (!completion[i]) {
+          completion[i] = true;
+          sidebarLis[i].classList.add("done");
+          const statusEl = sidebarLis[i].querySelector(".status");
+          if (statusEl) statusEl.textContent = "Completed";
+          const doneCount = completion.filter(Boolean).length;
+          const pct = Math.round((doneCount / total) * 100);
+          pctFill.style.width = pct + "%";
+          pctLabel.textContent = pct + "% complete";
+          if (doneCount === total) reportCompletion(course);
+        }
+      };
+      renderBlock(el, block, markDone);
+    });
+
+    // Scroll-spy — highlight whichever section is currently in the viewport.
+    const spy = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const idx = Number(entry.target.dataset.idx);
+          sidebarLis.forEach(li => li.classList.remove("current"));
+          const cur = sidebarLis[idx];
+          if (cur) {
+            cur.classList.add("current");
+            if (!cur.classList.contains("done")) {
+              const statusEl = cur.querySelector(".status");
+              if (statusEl) statusEl.textContent = "In progress";
+            }
+          }
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
+    sectionEls.forEach(el => spy.observe(el));
+  }
+
+  function renderNotFound() {
+    crumbs.textContent = "";
+    app.classList.remove("course-view");
+    app.innerHTML = `<h1>Not found</h1><p class="lead">That course doesn't exist. <a href="#/">Back to catalog</a></p>`;
+  }
+
+  /* =========================================================================
+     BLOCK RENDERERS
+     ========================================================================= */
+  function renderBlock(el, block, markDone) {
+    switch (block.type) {
+      case "text":       return renderText(el, block, markDone);
+      case "quiz":       return renderQuiz(el, block, markDone);
+      case "flashcards": return renderFlashcards(el, block, markDone);
+      case "match":      return renderMatch(el, block, markDone);
+      case "embed":      return renderEmbed(el, block, markDone);
+      default:
+        el.innerHTML = `<span class="kind">unknown</span><p>Unknown block type: ${escape(block.type)}</p>`;
+    }
+  }
+
+  function renderText(el, block, markDone) {
+    el.innerHTML = `
+      <span class="kind">Reading</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      <div class="prose"><p>${escape(block.body)}</p></div>
+    `;
+    // Reading blocks count as done on render — we assume the user read it.
+    markDone();
+  }
+
+  /*
+   * Embed block — renders an iframe (Storylane demo, YouTube, virtual env, etc.)
+   *
+   * Config shape:
+   *   {
+   *     type: "embed",
+   *     title: "Try the demo",           // optional
+   *     kind:  "Interactive demo",       // optional pill label; defaults to "Embed"
+   *     url:   "https://app.storylane.io/demo/abc123",  // required — must be https
+   *     ratio: "16/9",                   // optional; any CSS aspect-ratio value; default "16/9"
+   *     height: 520,                     // optional — fixed px height; if set, overrides ratio
+   *     caption: "Finish the flow, then mark complete.",  // optional
+   *     allow:  "fullscreen; clipboard-write",            // optional; sensible defaults applied
+   *     autoComplete: false              // if true, block is marked done on render instead of on button click
+   *   }
+   */
+  function renderEmbed(el, block, markDone) {
+    el.classList.add("embed");
+    const url = String(block.url || "");
+    const safeUrl = /^https:\/\//i.test(url) ? url : "";
+    const kind = escape(block.kind || "Embed");
+    const ratio = escape(block.ratio || "16 / 9");
+    // Superset of what Storylane, Clueso, YouTube, Vimeo, Loom, Arcade, etc. expect.
+    // Individual blocks can override via block.allow.
+    const allow = escape(block.allow || "accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture");
+    const frameStyle = block.height
+      ? `height: ${Number(block.height)}px;`
+      : `aspect-ratio: ${ratio};`;
+
+    el.innerHTML = `
+      <span class="kind">${kind}</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      ${safeUrl ? `
+        <div class="frame" style="${frameStyle}">
+          <iframe
+            src="${safeUrl}"
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="${allow}"
+            allowfullscreen></iframe>
+        </div>
+        ${block.caption ? `<p class="caption">${escape(block.caption)}</p>` : ""}
+        <div class="done-row">
+          <button class="done-btn" type="button">Mark as complete</button>
+          <a class="open-new" href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        </div>
+      ` : `<p class="caption">Embed is missing a valid https:// URL.</p>`}
+    `;
+
+    if (!safeUrl) { markDone(); return; }
+
+    if (block.autoComplete) {
+      markDone();
+      const btn = el.querySelector(".done-btn");
+      if (btn) { btn.disabled = true; btn.textContent = "Completed"; }
+      return;
+    }
+
+    const btn = el.querySelector(".done-btn");
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      btn.textContent = "Completed";
+      markDone();
+    });
+  }
+
+  function renderQuiz(el, block, markDone) {
+    el.innerHTML = `
+      <span class="kind">Quiz</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      <p>${escape(block.question)}</p>
+      <div class="options"></div>
+      <div class="feedback" hidden></div>
+    `;
+    const opts = el.querySelector(".options");
+    const fb = el.querySelector(".feedback");
+    block.options.forEach((opt, i) => {
+      const b = document.createElement("button");
+      b.className = "opt";
+      b.textContent = opt;
+      b.addEventListener("click", () => {
+        Array.from(opts.children).forEach(c => c.disabled = true);
+        const isRight = i === block.correct;
+        b.classList.add(isRight ? "correct" : "wrong");
+        if (!isRight) opts.children[block.correct].classList.add("correct");
+        fb.hidden = false;
+        fb.className = "feedback " + (isRight ? "good" : "bad");
+        fb.textContent = (isRight ? "Correct. " : "Not quite. ") + (block.explanation || "");
+        markDone();
+      });
+      opts.appendChild(b);
+    });
+  }
+
+  function renderFlashcards(el, block, markDone) {
+    el.innerHTML = `
+      <span class="kind">Flashcards</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      <p class="hint">Click a card to flip it.</p>
+      <div class="flash"><div class="deck"></div></div>
+    `;
+    const deck = el.querySelector(".deck");
+    let flipped = 0;
+    block.cards.forEach((c, i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "card-flip";
+      wrap.innerHTML = `
+        <div class="face front">${escape(c.front)}</div>
+        <div class="face back">${escape(c.back)}</div>
+      `;
+      wrap.addEventListener("click", () => {
+        const was = wrap.classList.contains("flipped");
+        wrap.classList.toggle("flipped");
+        if (!was) {
+          flipped++;
+          if (flipped >= Math.ceil(block.cards.length / 2)) markDone();
+        }
+      });
+      deck.appendChild(wrap);
+    });
+  }
+
+  function renderMatch(el, block, markDone) {
+    el.innerHTML = `
+      <span class="kind">Match</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      <p class="hint">Drag a term from the left onto the matching definition on the right.</p>
+      <div class="match">
+        <div class="lanes">
+          <div>
+            <h4>Terms</h4>
+            <div class="pool"></div>
+          </div>
+          <div>
+            <h4>Definitions</h4>
+            <div class="targets"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" data-act="check">Check</button>
+          <button class="ghost" data-act="reset">Reset</button>
+        </div>
+        <div class="feedback" hidden></div>
+      </div>
+    `;
+    const pool = el.querySelector(".pool");
+    const targets = el.querySelector(".targets");
+    const fb = el.querySelector(".feedback");
+
+    // shuffle both sides
+    const shuffle = a => a.map(v => [Math.random(), v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+    const terms = shuffle(block.pairs.map((p, idx) => ({ text: p.term, idx })));
+    const defs  = shuffle(block.pairs.map((p, idx) => ({ text: p.definition, idx })));
+
+    function makeChip(t) {
+      const c = document.createElement("div");
+      c.className = "chip";
+      c.draggable = true;
+      c.textContent = t.text;
+      c.dataset.idx = t.idx;
+      c.addEventListener("dragstart", e => {
+        c.classList.add("dragging");
+        e.dataTransfer.setData("text/plain", t.idx);
+        e.dataTransfer.effectAllowed = "move";
+      });
+      c.addEventListener("dragend", () => c.classList.remove("dragging"));
+      return c;
+    }
+
+    terms.forEach(t => pool.appendChild(makeChip(t)));
+
+    defs.forEach(d => {
+      const row = document.createElement("div");
+      row.className = "target";
+      row.dataset.idx = d.idx;
+      row.innerHTML = `<span class="label">${escape(d.text)}</span><span class="drop-slot"></span>`;
+      const slot = row.querySelector(".drop-slot");
+      row.addEventListener("dragover", e => { e.preventDefault(); row.classList.add("over"); });
+      row.addEventListener("dragleave", () => row.classList.remove("over"));
+      row.addEventListener("drop", e => {
+        e.preventDefault();
+        row.classList.remove("over");
+        const idx = e.dataTransfer.getData("text/plain");
+        // if slot already filled, return previous chip to the pool
+        if (slot.firstChild) pool.appendChild(slot.firstChild);
+        const chip = document.querySelector(`.chip[data-idx="${idx}"]`);
+        if (chip) slot.appendChild(chip);
+      });
+      targets.appendChild(row);
+    });
+
+    el.querySelector('[data-act="check"]').addEventListener("click", () => {
+      let correct = 0, total = block.pairs.length;
+      targets.querySelectorAll(".target").forEach(row => {
+        const chip = row.querySelector(".chip");
+        row.classList.remove("correct", "wrong");
+        if (chip && chip.dataset.idx === row.dataset.idx) {
+          row.classList.add("correct"); correct++;
+        } else if (chip) {
+          row.classList.add("wrong");
+        }
+      });
+      fb.hidden = false;
+      fb.className = "feedback " + (correct === total ? "good" : "bad");
+      fb.textContent = `${correct} / ${total} correct.` + (correct === total ? " Nice work." : " Try again.");
+      if (correct === total) markDone();
+    });
+
+    el.querySelector('[data-act="reset"]').addEventListener("click", () => {
+      targets.querySelectorAll(".target").forEach(row => {
+        row.classList.remove("correct", "wrong");
+        const chip = row.querySelector(".chip");
+        if (chip) pool.appendChild(chip);
+      });
+      fb.hidden = true;
+    });
+  }
+
+  /* =========================================================================
+     UTILITIES
+     ========================================================================= */
+  function escape(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  renderMe();
+  const _l = getLearner();
+  if (!_l || !_l.role) showIdentityModal(route);
+  else route();
+  </script>
+</body>
+</html>
