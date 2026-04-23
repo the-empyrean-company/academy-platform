@@ -145,29 +145,65 @@
 
     main { max-width: 1200px; margin: 0 auto; padding: 40px 32px 80px; }
     main.course-view { max-width: none; margin: 0; padding: 0; }
+    main.home-view { max-width: none; margin: 0; padding: 0 0 80px; }
+    main.home-view .home-content {
+      max-width: 1200px; margin: 0 auto; padding: 48px 32px 0;
+    }
+    @media (max-width: 640px) {
+      main.home-view .home-content { padding: 32px 20px 0; }
+    }
     body.in-course header .search,
     body.in-course header .notif { display: none; }
 
     /* ------------------------------------------------------------------ */
-    /* Course view — Rise 360 / Articulate feel                           */
-    /* Dark sticky sidebar with a numbered progress track, spacious main. */
+    /* Course view — Immersive newspaper feel                             */
+    /* Full-bleed main column, sidebar becomes a collapsible drawer       */
+    /* toggled from a floating pin at the bottom-left.                    */
     /* ------------------------------------------------------------------ */
     .course-layout {
-      display: grid;
-      grid-template-columns: 340px 1fr;
+      display: block;
+      position: relative;
       min-height: calc(100vh - var(--header-h));
     }
     .course-sidebar {
       background: var(--brand-900);
       color: #fff;
-      padding: 32px 28px 40px;
-      position: sticky;
+      padding: 64px 28px 40px;
+      position: fixed;
       top: var(--header-h);
-      align-self: start;
+      left: 0;
+      width: 340px;
       height: calc(100vh - var(--header-h));
       overflow-y: auto;
       border-right: 1px solid #0A1E3A;
+      transform: translateX(-100%);
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+      z-index: 45;
+      box-shadow: 0 0 32px rgba(5,13,26,.2);
     }
+    .course-sidebar[aria-hidden="false"] { transform: translateX(0); }
+    .course-sidebar-backdrop {
+      position: fixed;
+      inset: var(--header-h) 0 0 0;
+      background: rgba(5,13,26,.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s;
+      z-index: 40;
+    }
+    .course-sidebar-backdrop.visible { opacity: 1; pointer-events: auto; }
+    .course-sidebar-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      width: 34px; height: 34px;
+      background: transparent; border: 0;
+      color: rgba(255,255,255,.6);
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s;
+    }
+    .course-sidebar-close:hover { background: rgba(255,255,255,.1); color: #fff; }
     .course-sidebar .back-link {
       color: rgba(255,255,255,.72);
       font-size: 13px;
@@ -252,78 +288,287 @@
     .sections li.done .status    { color: var(--accent-lime); }
     .sections li.current .status { color: rgba(255,255,255,.85); }
 
-    /* Main reading column
-       Prose stays comfortable at ~820px; embed-heavy sections break out wider
-       so demos/videos aren't cramped. */
+    /* Main reading column — full-bleed, newspaper feel.
+       Prose stays comfortable at ~780px; embed-heavy sections break out wider. */
     .course-main {
-      padding: 48px 72px 96px;
-      max-width: 1120px;
+      padding: 0;
+      max-width: none;
       width: 100%;
-      margin: 0 auto;
-      box-sizing: border-box;
+      margin: 0;
     }
-    .course-main .course-hero,
     .course-main .section-wrap {
-      max-width: 820px;
+      max-width: 780px;
       margin-left: auto;
       margin-right: auto;
+      padding-left: 40px;
+      padding-right: 40px;
     }
     .course-main .section-wrap.has-embed {
-      max-width: 1040px;
+      max-width: 1080px;
     }
-    /* CSS-only fallback for browsers with :has() — keeps behaviour even when the
-       renderer forgets to add .has-embed manually. */
     @supports selector(:has(*)) {
-      .course-main .section-wrap:has(.block.embed) { max-width: 1040px; }
+      .course-main .section-wrap:has(.block.embed) { max-width: 1080px; }
     }
+    /* Full-viewport immersive hero with backdrop image. */
     .course-main .course-hero {
-      margin-bottom: 40px;
-      padding-bottom: 28px;
-      border-bottom: 1px solid var(--border);
+      position: relative;
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      padding: 64px 40px 96px;
+      min-height: calc(100vh - var(--header-h));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #fff;
+      overflow: hidden;
+      border-bottom: 0;
+      background:
+        linear-gradient(180deg, rgba(5,13,26,.28) 0%, rgba(5,13,26,.78) 100%),
+        url("https://transportmedia.be/wp-content/uploads/2024/06/Qargo-Team-1.jpg") center/cover no-repeat;
+    }
+    .course-main .course-hero .hero-inner {
+      max-width: 820px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
     }
     .course-main .course-hero .meta {
-      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
-      color: var(--brand-900); font-weight: 700;
-      margin-bottom: 10px;
-      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 12px; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--brand-600); font-weight: 700;
+      margin-bottom: 0;
+      display: inline-block;
     }
-    .course-main .course-hero .meta::before {
-      content: ""; width: 10px; height: 10px; border-radius: 2px;
-      background: var(--brand-600);
-    }
+    .course-main .course-hero .meta::before { display: none; }
     .course-main .course-hero h1 {
-      font-size: 40px; line-height: 1.1; margin: 0 0 12px;
+      font-size: 72px; line-height: 1.02; margin: 0;
+      letter-spacing: -0.028em; font-weight: 800;
+      color: #fff;
+      text-shadow: 0 2px 24px rgba(0,0,0,.22);
     }
     .course-main .course-hero p {
-      color: var(--ink-700); font-size: 16px; max-width: 640px; margin: 0;
+      color: rgba(255,255,255,.92);
+      font-size: 20px; line-height: 1.5;
+      max-width: 620px; margin: 0;
+      text-shadow: 0 1px 10px rgba(0,0,0,.2);
+    }
+    .course-main .course-hero .hero-start {
+      position: absolute;
+      bottom: 56px; left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex; align-items: center; gap: 12px;
+      background: var(--brand-600);
+      color: var(--brand-900);
+      padding: 16px 32px;
+      border: 0; border-radius: 999px;
+      font: inherit; font-weight: 700;
+      font-size: 13px; letter-spacing: .16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 14px 36px rgba(0,232,91,.38), 0 4px 16px rgba(5,13,26,.3);
+      transition: transform .15s, box-shadow .15s, background .15s;
+    }
+    .course-main .course-hero .hero-start:hover {
+      background: var(--brand-500);
+      transform: translateX(-50%) translateY(-2px);
+      box-shadow: 0 20px 44px rgba(0,232,91,.45), 0 6px 20px rgba(5,13,26,.35);
+    }
+    .course-main .course-hero .hero-start:active {
+      transform: translateX(-50%) translateY(0);
+    }
+    .course-main .course-hero .hero-start svg {
+      animation: hero-bob 1.8s ease-in-out infinite;
+    }
+    @keyframes hero-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(3px); }
     }
 
     .section-wrap {
-      scroll-margin-top: calc(var(--header-h) + 20px);
-      padding: 8px 0 24px;
+      scroll-margin-top: calc(var(--header-h) + 16px);
     }
-    .section-wrap .section-label {
-      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
-      color: var(--brand-900); font-weight: 700;
-      margin-bottom: 6px;
-      display: inline-flex; align-items: center; gap: 10px;
+    .course-main .section-wrap {
+      padding-top: 96px;
+      padding-bottom: 96px;
     }
-    .section-wrap .section-label::before {
-      content: ""; width: 10px; height: 10px; border-radius: 2px;
-      background: var(--brand-600);
+    .course-main .section-wrap .section-label {
+      font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--brand-600); font-weight: 700;
+      margin-bottom: 14px;
+      display: inline-block;
     }
-    .section-wrap h2.section-title {
-      margin: 0 0 18px;
-      font-size: 28px; line-height: 1.2;
-      color: var(--brand-900); font-weight: 700;
-      letter-spacing: -0.01em;
+    .course-main .section-wrap .section-label::before { display: none; }
+    .course-main .section-wrap h2.section-title {
+      margin: 0 0 48px;
+      font-size: 52px; line-height: 1.05;
+      color: var(--brand-900); font-weight: 800;
+      letter-spacing: -0.025em;
     }
-    /* Inside the course view we don't need the old small pill, hide it for tidiness */
+
+    /* Frameless article-style block inside course view.
+       Specific interactive block types (summary, embed, quiz, accordion,
+       flashcards, match) bring their own visual containment, so removing the
+       outer card chrome doesn't make them look unstyled. */
     .course-main .block > .kind { display: none; }
     .course-main .block {
-      margin: 0;
-      padding: 22px 26px;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      margin: 56px 0;
+      box-shadow: none;
     }
+    .course-main .block h3 {
+      font-size: 32px;
+      line-height: 1.15;
+      margin: 0 0 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .course-main .block .prose {
+      font-size: 18px;
+      line-height: 1.75;
+      color: var(--ink-700);
+    }
+    .course-main .block .prose .lead-p {
+      font-size: 22px;
+      line-height: 1.5;
+      font-weight: 500;
+      margin: 0 0 20px;
+      color: var(--brand-900);
+    }
+    .course-main .block .prose p { margin: 18px 0; }
+
+    /* Re-add chrome for summary block (needs the gradient card) */
+    .course-main .block.summary-block {
+      padding: 36px 40px;
+      border: 1px solid var(--brand-600);
+      border-radius: 18px;
+      margin: 80px 0 64px;
+      background: linear-gradient(180deg, var(--brand-50), var(--surface));
+    }
+    /* Accordion block: keep generous spacing but no outer shell */
+    .course-main .block.accordion-block { margin: 56px 0; }
+    /* Embed / quiz / match / flash: live happily without the outer card */
+
+    /* Full-width lesson-transition banner that bleeds past the prose column
+       and acts as a scroll gate — next lesson is hidden until the button is
+       clicked, so the natural end of one lesson's content IS this banner. */
+    .lesson-transition {
+      width: 100%;
+      padding: 72px 24px;
+      background: #E4E9EF;
+      border-top: 1px solid #CED5DD;
+      border-bottom: 1px solid #CED5DD;
+      opacity: 0;
+      transform: translateY(32px);
+      transition:
+        opacity .7s cubic-bezier(.22,1,.36,1),
+        transform .7s cubic-bezier(.22,1,.36,1);
+    }
+    .lesson-transition.in-view {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .lesson-transition button {
+      display: block;
+      max-width: 780px;
+      margin: 0 auto;
+      width: 100%;
+      text-align: center;
+      color: var(--ink-900);
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      font-size: 15px; font-weight: 800;
+      letter-spacing: .16em; text-transform: uppercase;
+      cursor: pointer;
+      transition: transform .15s;
+    }
+    .lesson-transition button:hover { transform: translateY(-2px); }
+    .lesson-transition .arrow {
+      display: inline-flex; vertical-align: middle;
+      margin-right: 16px; color: var(--brand-600);
+    }
+    .lesson-transition .next-title {
+      vertical-align: middle;
+      color: var(--brand-600);
+    }
+    .lesson-transition.is-last {
+      background: var(--brand-900);
+      border: 0;
+      padding: 80px 24px;
+    }
+    .lesson-transition.is-last .next-title {
+      color: var(--brand-600);
+    }
+    .lesson-transition.is-last .arrow { color: var(--brand-600); }
+
+    /* Progressive reveal — lessons beyond the current one stay hidden so the
+       learner has to click the lesson-transition button to advance. */
+    .section-wrap.is-locked,
+    .lesson-transition.is-locked {
+      display: none;
+    }
+    /* Animate a freshly revealed section fading + sliding in. */
+    @keyframes lesson-reveal {
+      from { opacity: 0; transform: translateY(48px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .section-wrap.just-revealed {
+      animation: lesson-reveal .8s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    /* Floating current-lesson pin — replaces the always-visible sidebar.
+       Click to open the collapsible table of contents. */
+    .course-pin {
+      position: fixed;
+      left: 24px; bottom: 24px;
+      display: flex; align-items: center; gap: 14px;
+      background: var(--brand-900);
+      color: #fff;
+      padding: 14px 18px;
+      border-radius: 14px;
+      border: 0;
+      text-align: left; cursor: pointer;
+      max-width: min(360px, 68vw);
+      z-index: 46;
+      font: inherit;
+      box-shadow: 0 18px 40px rgba(5,13,26,.3);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .course-pin:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 24px 48px rgba(5,13,26,.36);
+    }
+    .course-pin .pin-text { flex: 1; min-width: 0; }
+    .course-pin .pin-eyebrow {
+      font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--brand-600); font-weight: 700;
+      margin-bottom: 3px;
+    }
+    .course-pin .pin-title {
+      font-size: 14px; font-weight: 700; line-height: 1.3;
+      color: #fff;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .course-pin .pin-chev {
+      flex: none;
+      color: rgba(255,255,255,.55);
+      transition: color .15s;
+    }
+    .course-pin:hover .pin-chev { color: #fff; }
+    .course-pin[aria-expanded="true"] { opacity: 0; pointer-events: none; }
+
+    /* Legacy .lesson-end (no longer rendered) — kept hidden as a safety net */
+    .lesson-end { display: none; }
 
     /* Prev/Next navigation at the end of the course */
     .course-nav {
@@ -344,14 +589,21 @@
     }
 
     @media (max-width: 900px) {
-      .course-layout { grid-template-columns: 1fr; }
-      .course-sidebar {
-        position: static; height: auto;
-        padding: 22px 20px;
-      }
+      .course-sidebar { width: 86vw; max-width: 340px; padding: 56px 20px 32px; }
       .sections li { padding: 8px 10px 8px 34px; }
-      .course-main { padding: 32px 22px 72px; }
-      .course-main .course-hero h1 { font-size: 30px; }
+      .course-main .section-wrap { padding-left: 22px; padding-right: 22px; }
+      .course-main .course-hero { padding: 48px 22px 104px; }
+      .course-main .course-hero h1 { font-size: 40px; }
+      .course-main .course-hero p { font-size: 17px; }
+      .course-main .course-hero .hero-start { bottom: 28px; padding: 13px 22px; font-size: 12px; }
+      .course-main .section-wrap { padding-top: 64px; padding-bottom: 64px; }
+      .course-main .section-wrap h2.section-title { font-size: 32px; margin-bottom: 32px; }
+      .course-main .block h3 { font-size: 24px; }
+      .course-main .block .prose { font-size: 16px; line-height: 1.7; }
+      .course-main .block .prose .lead-p { font-size: 19px; }
+      .course-main .block.summary-block { padding: 24px; }
+      .lesson-transition { padding: 32px 20px; }
+      .course-pin { left: 16px; bottom: 16px; max-width: calc(100vw - 32px); }
     }
 
     h1 {
@@ -413,6 +665,83 @@
       box-shadow: var(--shadow-sm);
     }
     .hero .btn-ghost:hover { border-color: var(--brand-600); text-decoration: none; }
+
+    /* Home hero (full-bleed, photo backdrop) — used only on the catalog page */
+    .home-hero {
+      position: relative;
+      width: 100%;
+      min-height: min(560px, 62vh);
+      padding: 80px 32px 96px;
+      display: flex; align-items: center;
+      color: #fff;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(5,13,26,.38) 0%, rgba(5,13,26,.78) 100%),
+        url("https://www.qargo.com/u/2025/07/Qargo-tms-1-1.avif") center/cover no-repeat;
+    }
+    .home-hero-inner {
+      max-width: 1200px; margin: 0 auto; width: 100%;
+    }
+    .home-hero .eyebrow {
+      display: inline-flex; align-items: center;
+      font-size: 12px; text-transform: uppercase;
+      letter-spacing: .14em; color: var(--brand-600); font-weight: 700;
+      padding: 8px 16px; border-radius: 999px;
+      background: rgba(5,13,26,.72);
+      backdrop-filter: blur(6px);
+      margin-bottom: 22px;
+    }
+    .home-hero h1 {
+      margin: 0 0 14px;
+      font-size: 60px; line-height: 1.02;
+      letter-spacing: -0.025em;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 2px 24px rgba(0,0,0,.22);
+      max-width: 780px;
+    }
+    .home-hero p {
+      color: rgba(255,255,255,.92);
+      font-size: 18px; line-height: 1.55;
+      max-width: 620px;
+      margin: 0 0 32px;
+    }
+    .home-hero .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .home-hero .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font: inherit; font-size: 15px; font-weight: 700;
+      padding: 14px 24px; border-radius: 14px;
+      cursor: pointer; border: 1px solid transparent;
+      text-decoration: none;
+      transition: transform .05s, box-shadow .15s, background .15s, border-color .15s, color .15s;
+    }
+    .home-hero .btn-primary {
+      background: var(--brand-600);
+      color: var(--brand-900);
+      box-shadow: 0 10px 26px rgba(0,232,91,.38);
+    }
+    .home-hero .btn-primary:hover { background: var(--brand-500); text-decoration: none; }
+    .home-hero .btn-primary:active { transform: translateY(1px); }
+    .home-hero .btn-ghost {
+      background: transparent;
+      color: #fff;
+      border-color: rgba(255,255,255,.6);
+      box-shadow: none;
+    }
+    .home-hero .btn-ghost:hover {
+      background: rgba(255,255,255,.12);
+      border-color: #fff;
+      text-decoration: none;
+    }
+    @media (max-width: 960px) {
+      .home-hero { min-height: 440px; padding: 64px 28px 72px; }
+      .home-hero h1 { font-size: 44px; }
+      .home-hero p { font-size: 16px; }
+    }
+    @media (max-width: 640px) {
+      .home-hero { min-height: 360px; padding: 48px 20px 56px; }
+      .home-hero h1 { font-size: 34px; }
+    }
 
     /* Stats cards */
     .stats {
@@ -504,6 +833,228 @@
     }
     .continue-card .resume:hover { background: var(--brand-800); text-decoration: none; }
 
+    /* Home layout: main column (hero, path, grids) + side block (stats, leaderboard) */
+    .home-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 32px;
+      align-items: start;
+    }
+    .home-main { min-width: 0; }
+    .home-side {
+      display: flex; flex-direction: column; gap: 18px;
+      position: sticky; top: calc(var(--header-h) + 24px);
+    }
+    @media (max-width: 1080px) {
+      .home-layout { grid-template-columns: 1fr; }
+      .home-side { position: static; }
+    }
+
+    .side-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .side-block-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 16px;
+      background: transparent;
+      border: 0; cursor: pointer;
+      font: inherit; text-align: left;
+      color: var(--brand-900);
+    }
+    .side-block-head:hover { background: var(--ink-50); }
+    .side-title {
+      margin: 0; font-size: 13px; font-weight: 700; color: var(--brand-900);
+      letter-spacing: -0.005em;
+    }
+    .side-block-chev {
+      width: 18px; height: 18px; color: var(--ink-500);
+      transition: transform .2s ease;
+      flex-shrink: 0;
+    }
+    .side-block[data-collapsed="true"] .side-block-chev { transform: rotate(-90deg); }
+    .side-block-body {
+      padding: 4px 16px 16px;
+      max-height: 800px;
+      transition: max-height .25s ease, padding .2s ease, opacity .2s ease;
+      overflow: hidden;
+    }
+    .side-block[data-collapsed="true"] .side-block-body {
+      max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0;
+    }
+    .side-sub { margin: 0 0 10px; font-size: 12px; color: var(--ink-500); }
+
+    /* Compact learner-progress: inline row of three mini-stats */
+    .side-stats {
+      list-style: none; padding: 0; margin: 0;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .side-stats li {
+      display: flex; flex-direction: column;
+      gap: 4px;
+      padding: 10px 8px;
+      border-radius: 10px;
+      background: var(--ink-50);
+      text-align: center;
+    }
+    .side-stats .num {
+      font-size: 20px; font-weight: 800; color: var(--brand-900);
+      line-height: 1; letter-spacing: -0.02em;
+    }
+    .side-stats .label {
+      font-size: 11px; color: var(--ink-500);
+      line-height: 1.25;
+    }
+
+    .leaderboard { list-style: none; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 0; }
+    .leaderboard li {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 8px; border-radius: 8px;
+      font-size: 12.5px;
+    }
+    .leaderboard li .rank {
+      width: 22px; text-align: center; font-weight: 800; color: var(--ink-500); font-size: 12px;
+    }
+    .leaderboard li:nth-child(1) .rank { color: var(--brand-600); }
+    .leaderboard li .who { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .leaderboard li .nm {
+      font-weight: 600; color: var(--brand-900);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .leaderboard li .co {
+      font-size: 11.5px; color: var(--ink-500);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .leaderboard li .pts { font-weight: 700; color: var(--brand-900); font-size: 12.5px; }
+    .leaderboard li.is-you { background: var(--brand-50); }
+    .leaderboard li.is-you .nm { color: var(--brand-900); }
+    .you-chip {
+      display: inline-block; margin-left: 6px;
+      background: var(--brand-600); color: var(--brand-900);
+      font-size: 10px; font-weight: 800; letter-spacing: .06em;
+      padding: 2px 6px; border-radius: 999px; text-transform: uppercase;
+    }
+
+    /* Learning path card */
+    .path-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 28px 24px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 24px;
+    }
+    .path-card-head { margin-bottom: 18px; }
+    .path-meta {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-size: 13px; color: var(--ink-500); margin-bottom: 8px;
+    }
+    .path-code {
+      font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+      font-weight: 800; color: var(--brand-600);
+    }
+    .path-card h3 {
+      margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--brand-900);
+      letter-spacing: -0.02em;
+    }
+    .path-card > .path-card-head p { margin: 0; color: var(--ink-500); font-size: 14.5px; }
+
+    .path-module-list {
+      list-style: none; padding: 0; margin: 0 0 18px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .path-step {
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+    }
+    .path-step .step-code {
+      font-size: 12px; font-weight: 800; color: var(--brand-900);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 4px 0; text-align: center;
+      letter-spacing: .04em;
+    }
+    .path-step .step-title { font-size: 14.5px; font-weight: 600; color: var(--brand-900); }
+    .path-step .step-status { font-size: 12px; color: var(--ink-500); font-weight: 600; }
+    .path-step--active {
+      border-color: var(--brand-600);
+      background: var(--brand-50);
+    }
+    .path-step--active .step-status { color: var(--brand-600); }
+    .path-step--done .step-code {
+      background: var(--brand-600); color: var(--brand-900); border-color: var(--brand-600);
+    }
+    .path-step--done .step-status { color: var(--good); }
+    .path-step--locked { opacity: .65; }
+    .path-step--locked .step-status { color: var(--ink-300); }
+
+    .path-card-foot {
+      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      border-top: 1px solid var(--border); padding-top: 18px;
+    }
+    .path-progress { flex: 1; min-width: 200px; }
+    .path-progress .bar {
+      height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .path-progress .bar > span {
+      display: block; height: 100%; background: var(--brand-600);
+      transition: width .3s ease;
+    }
+    .path-progress .pct { font-size: 12.5px; font-weight: 700; color: var(--ink-500); margin-top: 6px; }
+    .path-card-foot .btn-primary {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--brand-600); color: var(--brand-900);
+      padding: 12px 22px; border-radius: 12px; border: 0;
+      font: inherit; font-weight: 700; font-size: 14px;
+      text-decoration: none;
+      box-shadow: 0 6px 16px rgba(0,232,91,.22);
+    }
+    .path-card-foot .btn-primary:hover { background: var(--brand-500); text-decoration: none; }
+
+    /* Locked cards (specialised / extra-curricular) */
+    .card-locked {
+      cursor: not-allowed;
+      background: var(--surface);
+      border-style: dashed;
+      opacity: .78;
+    }
+    .card-locked:hover {
+      transform: none;
+      box-shadow: var(--shadow-sm);
+      border-color: var(--border);
+    }
+    .card-locked .locked-badge {
+      display: inline-block; align-self: flex-start;
+      font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      background: var(--surface-2); color: var(--ink-500);
+      padding: 4px 10px; border-radius: 999px; margin-bottom: 14px;
+    }
+    .card-locked h3 { margin: 0 0 8px; }
+    .card-locked p { margin: 0; }
+
+    .locked-panel {
+      margin-top: 24px;
+      padding: 22px;
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .locked-panel strong { display: block; font-size: 15px; color: var(--brand-900); margin-bottom: 4px; }
+    .locked-panel p { margin: 0 0 14px; color: var(--ink-500); font-size: 14px; }
+
     /* Catalog */
     .grid {
       display: grid;
@@ -586,6 +1137,120 @@
     .block h3 { margin: 0 0 12px; font-size: 19px; color: var(--brand-900); font-weight: 700; }
     .block .prose { color: var(--ink-700); font-size: 15px; }
     .block .prose p { margin: 6px 0; }
+    .block .prose .lead-p {
+      font-size: 17px;
+      color: var(--brand-900);
+      font-weight: 500;
+      margin: 0 0 12px;
+      line-height: 1.5;
+    }
+
+    /* Accordion */
+    .accordion-block .hint {
+      font-size: 14px; color: var(--ink-500); margin: -4px 0 12px;
+    }
+    .accordion {
+      display: grid; gap: 8px; margin-top: 4px;
+    }
+    .acc-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .acc-row.open {
+      border-color: var(--brand-600);
+      box-shadow: 0 0 0 3px var(--brand-50);
+    }
+    .acc-head {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%;
+      background: transparent;
+      border: 0;
+      padding: 14px 16px;
+      font: inherit; font-weight: 600;
+      color: var(--brand-900);
+      text-align: left;
+      cursor: pointer;
+      gap: 12px;
+    }
+    .acc-head:hover { background: var(--brand-50); }
+    .acc-q { flex: 1; }
+    .acc-chev {
+      flex: none;
+      color: var(--brand-700);
+      transition: transform .2s;
+    }
+    .acc-row.open .acc-chev { transform: rotate(180deg); }
+    .acc-body {
+      padding: 0 16px 14px;
+      color: var(--ink-700);
+      font-size: 15px;
+      border-top: 1px solid var(--border);
+    }
+    .acc-body p { margin: 10px 0 0; }
+
+    /* Summary */
+    .summary-block {
+      background: linear-gradient(180deg, var(--brand-50), var(--surface));
+      border-color: var(--brand-600);
+    }
+    .summary-block .kind {
+      background: var(--brand-900);
+      color: var(--brand-600);
+    }
+    .summary-points {
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+    .summary-points li {
+      position: relative;
+      padding: 8px 12px 8px 34px;
+      color: var(--ink-900);
+      font-size: 15px;
+      line-height: 1.5;
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .summary-points li::before {
+      content: "";
+      position: absolute;
+      left: 12px; top: 14px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--brand-600);
+      box-shadow: inset 0 0 0 3px var(--brand-900);
+    }
+
+    /* Lesson end */
+    .lesson-end {
+      display: flex; justify-content: flex-end;
+      margin: 8px 0 4px;
+    }
+    .lesson-continue {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--brand-600);
+      color: var(--brand-900);
+      padding: 11px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: var(--shadow-sm);
+      transition: background .15s, transform .1s;
+    }
+    .lesson-continue:hover { background: var(--brand-500); text-decoration: none; }
+    .lesson-continue:active { transform: translateY(1px); }
+    .lesson-continue.ghost {
+      background: var(--surface);
+      color: var(--brand-900);
+      border: 1px solid var(--border);
+    }
+    .lesson-continue.ghost:hover { background: var(--brand-50); }
 
     /* Embed (iframes — Storylane demos, virtual environments, etc.) */
     .embed .frame {
@@ -621,26 +1286,92 @@
     }
 
     /* Quiz */
-    .quiz .options { display: grid; gap: 10px; margin-top: 14px; }
+    .quiz .quiz-question { font-size: 17px; color: var(--ink-900); margin: 0 0 16px; }
+    .quiz .options {
+      display: flex; flex-direction: column; gap: 10px;
+      margin: 0; padding: 0; border: 0;
+    }
     .quiz .opt {
+      display: flex; align-items: center; gap: 14px;
       text-align: left;
       background: var(--surface);
       border: 1.5px solid var(--border);
       color: var(--ink-900);
-      padding: 12px 16px;
-      border-radius: 10px;
+      padding: 14px 18px;
+      border-radius: 12px;
       cursor: pointer;
       font: inherit; font-weight: 500;
+      transition: border-color .15s, background .15s, box-shadow .15s;
+    }
+    .quiz .opt input[type="radio"] {
+      position: absolute;
+      width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0);
+      white-space: nowrap; border: 0;
+    }
+    .quiz .opt .radio-dot {
+      width: 20px; height: 20px; flex-shrink: 0;
+      border-radius: 999px;
+      border: 2px solid var(--ink-300, #c9d0d8);
+      background: var(--surface);
+      position: relative;
       transition: border-color .15s, background .15s;
     }
-    .quiz .opt:hover:not(:disabled) {
+    .quiz .opt .radio-dot::after {
+      content: "";
+      position: absolute; inset: 3px;
+      border-radius: 999px;
+      background: var(--brand-600);
+      transform: scale(0);
+      transition: transform .15s ease;
+    }
+    .quiz .opt .opt-text { flex: 1; min-width: 0; line-height: 1.45; }
+    .quiz .opt:hover:not(.locked) {
       border-color: var(--brand-600);
       background: var(--brand-50);
     }
-    .quiz .opt.correct { border-color: var(--good); background: rgba(16,185,129,.08); }
-    .quiz .opt.wrong   { border-color: var(--bad);  background: rgba(224,77,77,.08); }
-    .quiz .opt:disabled { cursor: default; }
-    .quiz .feedback { margin-top: 12px; font-size: 14px; color: var(--ink-500); }
+    .quiz .opt:hover:not(.locked) .radio-dot { border-color: var(--brand-600); }
+    .quiz .opt.selected {
+      border-color: var(--brand-600);
+      background: var(--brand-50);
+      box-shadow: 0 0 0 3px rgba(0,232,91,.12);
+    }
+    .quiz .opt.selected .radio-dot { border-color: var(--brand-600); }
+    .quiz .opt.selected .radio-dot::after { transform: scale(1); }
+    .quiz .opt.locked { cursor: default; }
+    .quiz .opt.correct {
+      border-color: var(--good); background: rgba(16,185,129,.08);
+      box-shadow: none;
+    }
+    .quiz .opt.correct .radio-dot { border-color: var(--good); }
+    .quiz .opt.correct .radio-dot::after { background: var(--good); transform: scale(1); }
+    .quiz .opt.wrong {
+      border-color: var(--bad); background: rgba(224,77,77,.08);
+      box-shadow: none;
+    }
+    .quiz .opt.wrong .radio-dot { border-color: var(--bad); }
+    .quiz .opt.wrong .radio-dot::after { background: var(--bad); transform: scale(1); }
+    .quiz .quiz-actions { margin-top: 18px; }
+    .quiz .submit-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font: inherit; font-size: 14px; font-weight: 700;
+      background: var(--brand-600); color: var(--brand-900);
+      border: 0; border-radius: 12px;
+      padding: 12px 22px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,232,91,.28);
+      transition: background .15s, transform .05s, box-shadow .15s, opacity .15s;
+    }
+    .quiz .submit-btn:hover:not(:disabled) { background: var(--brand-500); }
+    .quiz .submit-btn:active:not(:disabled) { transform: translateY(1px); }
+    .quiz .submit-btn:disabled {
+      background: var(--ink-100, #e8ecf0);
+      color: var(--ink-500);
+      box-shadow: none;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .quiz .feedback { margin-top: 14px; font-size: 15px; color: var(--ink-500); }
     .quiz .feedback.good { color: var(--good); }
     .quiz .feedback.bad  { color: var(--bad); }
 
@@ -905,317 +1636,337 @@
 
   /* =========================================================================
      ROLES
-     From the Qargo Learning Architecture. Each learner picks one role on first
-     visit (and can switch later). Each course declares the roles it's
-     recommended for — courses outside the learner's role are still accessible
-     under "Other courses".
+     From the Qargo Learning Architecture. Only Super Admin is selectable
+     while we build out content for the other personas. The remaining three
+     appear in the dropdown with a "Coming soon" hint so users can see the
+     direction without being able to pick them yet.
      ========================================================================= */
   const ROLES = [
-    { id: "ops_manager", label: "Head of Transport / Ops Manager",
-      blurb: "Owns the full operation — needs the end-to-end journey." },
-    { id: "finance",     label: "Finance / AR",
-      blurb: "Focus on invoicing, credit notes, and rate card logic." },
-    { id: "planner",     label: "Transport Planner",
-      blurb: "Daily dispatch — planning board, stops, and trips." },
-    { id: "ops_admin",   label: "Customer Service / Ops Admin",
-      blurb: "Order entry, customer comms, and day-to-day support." },
-    { id: "leadership",  label: "MD / Leadership",
-      blurb: "Strategic overview — orientation, reporting, pricing." },
+    { id: "super_admin",   label: "Super Admin",
+      blurb: "Full-stack operator. Needs the complete end-to-end journey across every Qargo module.",
+      available: true },
+    { id: "planner",       label: "Planner",
+      blurb: "Daily dispatch. Planning board, stops and trips.",
+      available: false },
+    { id: "invoicer",      label: "Invoicer",
+      blurb: "Invoicing, credit notes and rate card logic.",
+      available: false },
+    { id: "customer_svc",  label: "Customer Services",
+      blurb: "Order entry, customer communications and day-to-day support.",
+      available: false },
   ];
 
   /* =========================================================================
-     COURSE CONTENT
-     Edit this object to add/remove courses and blocks.
-     Each course has: id, title, emoji, description, roles[], blocks[].
-     `roles` is an array of role IDs the course is recommended for.
-     Block types supported: "text", "quiz", "flashcards", "match".
+     LEARNING PATH, MODULES AND EXTRAS
+     The Super Admin onboarding journey. M0 is the only playable module
+     right now. M1..M9 are listed so the full path is visible but they
+     are locked until content is built. SPECIALISED_MODULES and
+     EXTRA_CURRICULAR show up separately on the homepage and are not
+     clickable in this phase. Source:
+     https://www.notion.so/qargo/336e32e8f8c88041b155de9243e48980
      ========================================================================= */
-  /* Each course here represents a MODULE in the onboarding learning journey.
-     Each block is one LESSON. Source:
-     https://www.notion.so/qargo/336e32e8f8c88041b155de9243e48980  */
-  const COURSES = [
+  const MODULES = [
     {
       id: "m0-logic-of-qargo",
       code: "M0",
-      emoji: "🗺️",
-      title: "Getting Started — The Logic of Qargo",
+      title: "The Logic of Qargo",
       description: "Orientation. Builds the mental model before you touch anything.",
-      roles: ["ops_manager", "finance", "planner", "ops_admin", "leadership"],
-      blocks: [
+      roles: ["super_admin"],
+      locked: false,
+      lessons: [
         {
-          type: "text",
-          title: "What Qargo is and why it works the way it does",
-          body: "Qargo is a Transport Management System built around how transport actually operates. Rather than forcing a workflow, it mirrors the real-world chain: a customer requests a move (Order), those moves are broken into physical events (Stops), and events are grouped for execution (Trips). Understanding that chain is the foundation for everything else."
+          id: "m0-l1-welcome",
+          title: "Welcome to Qargo",
+          blocks: [
+            {
+              type: "text",
+              title: "What Qargo is and why it works the way it does",
+              lead: "Welcome to Qargo. Before you touch any screen, it helps to know what the system is doing in the background.",
+              body: "Qargo is a Transport Management System built around how transport actually operates. Instead of forcing a workflow on you, it follows the chain your operation already runs: a customer requests a move, the move is broken into physical events at specific addresses, and those events are grouped into something a driver can execute. Knowing this chain before you open any screen is what makes the rest of the app click into place."
+            },
+            {
+              type: "accordion",
+              title: "Quick glossary",
+              intro: "Four terms you'll hear every day. Expand any row for a one-line definition.",
+              items: [
+                { q: "Order",     a: "The commercial promise. What the customer asked for and what they agreed to pay." },
+                { q: "Stop",      a: "A physical event. One pickup or one delivery, at one address, in a time window." },
+                { q: "Trip",      a: "A driver's route. A vehicle, a driver and the stops they'll visit in sequence." },
+                { q: "Rate card", a: "The pricing engine. Customer-specific rules that turn orders into invoice lines." }
+              ]
+            },
+            {
+              type: "summary",
+              title: "Key takeaways",
+              points: [
+                "Qargo mirrors the real-world chain: Order, then Stop, then Trip.",
+                "The system's job is to reflect your operation, not rewrite it.",
+                "Orders, Stops, Trips and Rate Cards are the foundation you'll keep returning to."
+              ]
+            },
+            {
+              type: "quiz",
+              title: "Quick check",
+              question: "What does an Order capture in Qargo?",
+              options: [
+                "The driver's route and vehicle",
+                "The commercial promise made to the customer",
+                "A single pickup or delivery event",
+                "The fuel surcharge applied to a load"
+              ],
+              correct: 1,
+              explanation: "Orders capture the agreement with the customer. Stops are physical events, Trips are how drivers execute them."
+            }
+          ]
         },
         {
-          type: "text",
-          title: "Core data structure: Orders → Stops → Trips → Rate Cards",
-          body: "Every action in Qargo touches one of four core objects. Orders capture the commercial promise. Stops are the physical pickups and deliveries. Trips group stops into something a driver can execute. Rate Cards determine what the customer pays. Once you see how data flows between these four, the rest of the interface makes sense."
+          id: "m0-l2-core-objects",
+          title: "The four core objects",
+          blocks: [
+            {
+              type: "text",
+              title: "Orders, Stops, Trips and Rate Cards",
+              lead: "Every action you take in Qargo touches one of four core objects. If you can name them, you can navigate anywhere.",
+              body: "Orders capture the commercial promise: the customer, the consignment, the agreed pricing logic, the deadlines. Stops are the physical events: one pickup at one location, one delivery at another, each with a time window. Trips group stops into something a driver can actually execute, with a vehicle and a driver attached. Rate Cards are where customer-specific pricing rules live, feeding the invoicing engine. The flow is linear but not rigid: one order can produce several trips, and one trip can serve many orders."
+            },
+            {
+              type: "flipcard",
+              title: "Who owns what",
+              intro: "Flip each card to see who owns the object and what it captures.",
+              cards: [
+                { front: "Order",     back: "Owned by CS. Captures the commercial promise with the customer." },
+                { front: "Stop",      back: "Derived from orders. Captures one pickup or delivery event." },
+                { front: "Trip",      back: "Owned by planners. Groups stops a driver will execute in sequence." },
+                { front: "Rate card", back: "Owned by finance. Turns orders into priced invoice lines." }
+              ]
+            },
+            {
+              type: "match",
+              title: "Match the field to the object",
+              pairs: [
+                { term: "Pickup time window", definition: "Stop" },
+                { term: "Customer reference", definition: "Order" },
+                { term: "Vehicle and driver", definition: "Trip" },
+                { term: "Price per pallet",   definition: "Rate card" }
+              ]
+            },
+            {
+              type: "summary",
+              title: "Key takeaways",
+              points: [
+                "Four objects, each with a clear job.",
+                "Remember the order: Orders, Stops, Trips, Rate Cards.",
+                "If you can't find a field, you're probably looking at the wrong object."
+              ]
+            },
+            {
+              type: "quiz",
+              title: "Quick check",
+              question: "Where does the driver and vehicle information live?",
+              options: ["On the Order", "On the Stop", "On the Trip", "On the Rate card"],
+              correct: 2,
+              explanation: "The Trip is the execution layer. It carries the driver, the vehicle and the sequence of stops."
+            }
+          ]
         },
         {
-          type: "text",
-          title: "How different roles interact with the same data",
-          body: "The planner, the finance team, and customer service all look at the same orders — from different angles. Planners see the planning board. Finance see unbilled work. CS see the order inbox. Knowing which role owns which field prevents conflicting changes later."
+          id: "m0-l3-who-does-what",
+          title: "Who does what",
+          blocks: [
+            {
+              type: "text",
+              title: "How different roles interact with the same data",
+              lead: "Planning, CS, finance and admin all work on the same data, just from different angles.",
+              body: "A planner opens the Planning Board. They drag stops into trips, assign drivers, resolve conflicts. A Customer Service colleague lives in the Order List and the Order Detail view, updating deadlines and responding to customers. Finance work from the Invoicing screen, running billing rounds and issuing credit notes. A Super Admin touches configuration: rate cards, master data, document templates. No single team owns an order from start to finish. They all touch it at different stages."
+            },
+            {
+              type: "accordion",
+              title: "A day in the life",
+              intro: "Expand a role to see the screens they start with and the handoffs they rely on.",
+              items: [
+                { q: "Planner",      a: "Starts from the Planning Board, resolves overnight changes, rolls tomorrow's plan. Relies on CS to keep order changes up to date." },
+                { q: "Customer Services", a: "Inbox first, then the Order List. Updates ETAs, confirms pickups, escalates changes to planning so the board stays accurate." },
+                { q: "Finance",      a: "Runs invoicing once PODs are in. Spots missing surcharges, issues credit notes, closes the week." },
+                { q: "Super Admin",  a: "Mostly in Admin. Configures rate cards, master data and templates. Changes ripple everywhere, so small tweaks get tested first." }
+              ]
+            },
+            {
+              type: "summary",
+              title: "Key takeaways",
+              points: [
+                "One order, four viewpoints.",
+                "Field ownership matters: don't let finance change what CS owns mid-flight.",
+                "Knowing the other roles' needs prevents silent data conflicts."
+              ]
+            },
+            {
+              type: "quiz",
+              title: "Quick check",
+              question: "Who primarily owns the Planning Board?",
+              options: ["Customer Services", "The Planner", "Finance", "The driver"],
+              correct: 1,
+              explanation: "Planners own dispatch. CS feeds them order changes, finance receives the completed trips for invoicing."
+            }
+          ]
         },
         {
-          type: "text",
-          title: "Navigating the interface: the five areas to know",
-          body: "The Qargo app is organised around five main areas: Orders, Planning, Finance, Reports, and Configuration. Everything else is a sub-view of one of these. When a customer asks 'where do I do X?', nine times out of ten the answer is one of these five."
+          id: "m0-l4-six-areas",
+          title: "Six areas of the interface",
+          blocks: [
+            {
+              type: "text",
+              title: "The six places you'll spend your time",
+              lead: "When a colleague asks 'where do I do X in Qargo?' the answer is almost always one of six screens.",
+              body: "Qargo's app is organised into six main areas. Orders holds the list, filters and order detail pages. Planning is the planning board and trip detail. Finance covers invoicing and credit notes. Reports contains exports and dashboards. Admin is configuration: rate cards, master data, document templates. Profile is where you switch user, language and access settings. Everything else is a sub-view of one of these six. Learning to orient yourself here shaves the most time off onboarding."
+            },
+            {
+              type: "match",
+              title: "Where do I do this?",
+              pairs: [
+                { term: "Run today's invoicing",        definition: "Finance" },
+                { term: "Drag a stop onto a trip",      definition: "Planning" },
+                { term: "Create a new customer record", definition: "Admin" },
+                { term: "Export all trips for the month", definition: "Reports" },
+                { term: "Update a delivery time window", definition: "Orders" }
+              ]
+            },
+            {
+              type: "embed",
+              title: "Take a guided tour",
+              kind: "Interactive demo",
+              url: "https://app.storylane.io/share/embed/preview",
+              caption: "Click through the guided tour of the six areas, then come back to finish the lesson.",
+              ratio: "16 / 9"
+            },
+            {
+              type: "summary",
+              title: "Key takeaways",
+              points: [
+                "Six areas: Orders, Planning, Finance, Reports, Admin, Profile.",
+                "Nine times out of ten, the answer to 'where do I do X?' is one of these.",
+                "The interface rewards keyboard shortcuts: five minutes spent learning them pays back daily."
+              ]
+            },
+            {
+              type: "quiz",
+              title: "Quick check",
+              question: "Where would you create a new rate card?",
+              options: ["Orders", "Planning", "Finance", "Admin"],
+              correct: 3,
+              explanation: "Rate cards live in Admin because they're configuration. Finance uses them every day, but Admin is where they're set up."
+            }
+          ]
+        },
+        {
+          id: "m0-l5-wrap-up",
+          title: "Wrap-up and what's next",
+          blocks: [
+            {
+              type: "text",
+              title: "You've just laid the foundation",
+              lead: "That's Module 0. Nice work. Before you move on, a quick recap of what you now know and what's coming.",
+              body: "You can explain what Qargo is and why it's organised the way it is. You can name the four core objects and describe who owns each one. You know how CS, planning, finance and admin coordinate around the same data. And you know the six interface areas to orient any task. The rest of the learning path builds on this foundation. Module 1 walks you through Essential Setup: the baseline configuration every Qargo instance needs before it's usable."
+            },
+            {
+              type: "embed",
+              title: "A welcome from the Academy team",
+              kind: "Video",
+              url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+              caption: "A short welcome video. About 90 seconds.",
+              ratio: "16 / 9"
+            },
+            {
+              type: "summary",
+              title: "Where you are now",
+              points: [
+                "You understand Qargo's mental model.",
+                "You can name the four objects and the six areas.",
+                "Module 1 will start you configuring your real setup."
+              ]
+            },
+            {
+              type: "quiz",
+              title: "Quick check",
+              question: "What comes after Module 0 on the learning path?",
+              options: [
+                "M1 Essential Setup",
+                "M6 Rate Cards",
+                "M8 Reporting and Exports",
+                "You're done"
+              ],
+              correct: 0,
+              explanation: "Module 1 Essential Setup is next. It translates the mental model you just built into real configuration choices."
+            }
+          ]
         }
       ]
     },
-    {
-      id: "m1-order-entry",
-      code: "M1",
-      emoji: "📝",
-      title: "Order Entry",
+    { id: "m1-essential-setup",    code: "M1", title: "Essential Setup",
+      description: "The baseline configuration every Qargo instance needs before day one.",
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m2-order-entry",        code: "M2", title: "Order Entry",
       description: "Daily workflow for the team creating and managing transport orders.",
-      roles: ["ops_manager", "ops_admin"],
-      blocks: [
-        {
-          type: "text",
-          title: "Creating and managing orders",
-          body: "An order is the starting point for any move. You can create one manually, import via Excel, or receive via EDI or the customer portal. Every order needs at minimum a customer, a consignment, and at least one pickup and one delivery."
-        },
-        {
-          type: "text",
-          title: "Consignments, stops, and addresses",
-          body: "A consignment is what's being moved — pallets, containers, boxes. A stop is where it's picked up or delivered. Addresses are reusable records linked to customers. Getting the relationship right here prevents a lot of duplicated data later."
-        },
-        {
-          type: "text",
-          title: "Order statuses and what they mean",
-          body: "Orders move through a lifecycle: New → Accepted → Planned → In progress → Completed → Invoiced. Each status has a specific meaning and triggers downstream actions. Skipping or mis-setting a status causes reporting and billing errors."
-        },
-        {
-          type: "text",
-          title: "Searching and filtering",
-          body: "The order list is the view your CS team spends the most time in. Learn the column filters, saved views, and keyboard shortcuts — it pays back every day."
-        }
-      ]
-    },
-    {
-      id: "m2-stops-and-trips",
-      code: "M2",
-      emoji: "🚚",
-      title: "Stops & Trips",
-      description: "How orders translate into executable transport tasks — a common source of confusion.",
-      roles: ["ops_manager", "planner", "ops_admin"],
-      blocks: [
-        {
-          type: "text",
-          title: "The difference between stops and trips",
-          body: "Stops are the 'what needs to happen' — a pickup at Warehouse A at 09:00, a delivery to Customer B at 14:00. A trip is the 'how it gets done' — a vehicle, a driver, and a sequence of stops to execute in order. One order can become several trips; one trip can serve several orders."
-        },
-        {
-          type: "text",
-          title: "How Qargo groups stops into trips",
-          body: "Qargo groups stops manually (drag and drop on the planning board) or automatically (based on proximity, time windows, and vehicle capacity). Understanding the grouping rules helps you predict what the system will do."
-        },
-        {
-          type: "text",
-          title: "Manual vs. auto-generated trips",
-          body: "Auto-generation is fast but benefits from clean master data. Manual planning gives full control but doesn't scale. Most operations use a mix — auto for the bulk, manual for the exceptions."
-        },
-        {
-          type: "text",
-          title: "Status flow from planned to actual",
-          body: "A trip moves from Planned → Dispatched → In progress → Completed. Each status transition unlocks different actions (POD capture, invoicing). Timestamps along the way drive your KPI reports."
-        }
-      ]
-    },
-    {
-      id: "m3-planning-basics",
-      code: "M3",
-      emoji: "📋",
-      title: "Planning Basics",
-      description: "For planners managing daily dispatch and driver allocation.",
-      roles: ["ops_manager", "planner"],
-      blocks: [
-        {
-          type: "text",
-          title: "The planning board: how to read it",
-          body: "The planning board is a Gantt-style view with drivers and vehicles on one axis and time on the other. Each bar is a trip. Colour shows status. Gaps show unused capacity. Once you can read this at a glance, you can plan a full day in minutes."
-        },
-        {
-          type: "text",
-          title: "Assigning drivers and vehicles to trips",
-          body: "Trips can be assigned via drag-and-drop, bulk allocation, or rules. The system checks for conflicts — driver hours, vehicle availability — and warns you before committing. Fix warnings before they become real-world problems."
-        },
-        {
-          type: "text",
-          title: "Date types: requested, planned, and actual",
-          body: "Qargo tracks three date layers per stop: what the customer requested, what you planned, and what actually happened. Reporting on the delta between them is the foundation of on-time performance analytics."
-        },
-        {
-          type: "text",
-          title: "Rescheduling and exception handling",
-          body: "When things go wrong — breakdowns, late pickups, customer changes — Qargo gives you tools to reschedule without losing the audit trail. Every change is versioned so you can explain what changed and when."
-        }
-      ]
-    },
-    {
-      id: "m4-finance-basics",
-      code: "M4",
-      emoji: "💶",
-      title: "Finance Basics — Invoicing & Credit Notes",
-      description: "Core financial operations every operational manager should understand.",
-      roles: ["finance"],
-      blocks: [
-        {
-          type: "text",
-          title: "How and when invoices are generated",
-          body: "Invoices are generated once trips are completed and PODs are captured. You can run invoicing daily, weekly, or on-demand. The rate card attached to the order determines what gets charged."
-        },
-        {
-          type: "text",
-          title: "Credit notes: when to use them",
-          body: "Credit notes undo or correct an existing invoice — never use a negative invoice. Common reasons: wrong rate applied, cancelled order after invoicing, resolved customer dispute. Always tie the credit note to the original invoice for clean auditing."
-        },
-        {
-          type: "text",
-          title: "Invoice statuses and approval flows",
-          body: "Invoices move through Draft → Approved → Sent → Paid. Some customers require a two-step approval; Qargo supports that with a dedicated 'Pending approval' status. Know who's authorised at each step."
-        },
-        {
-          type: "text",
-          title: "Common invoicing errors to watch for",
-          body: "The three most common errors: wrong rate card on the order, missing surcharges, and POD not linked to the trip. All three are preventable with a short review step before the invoicing run."
-        }
-      ]
-    },
-    {
-      id: "m5-rate-cards",
-      code: "M5",
-      emoji: "🏷️",
-      star: true,
-      title: "Rate Cards",
-      description: "★ The most critical module. Addresses the #1 struggle across all regions.",
-      roles: ["finance", "leadership"],
-      blocks: [
-        {
-          type: "text",
-          title: "What a rate card is and why Qargo needs it",
-          body: "A rate card is Qargo's pricing engine per customer. It defines what you charge, how you charge it, and under what conditions. Without an accurate rate card, invoicing is manual and error-prone. Time invested here pays back on every invoice."
-        },
-        {
-          type: "text",
-          title: "The navigation path: rate card → transport charge → calculation table",
-          body: "Rate cards are nested: a Rate Card contains Transport Charges; each Transport Charge contains a Calculation Table that produces the number. Memorising this three-level path is the single biggest unlock for working with rate cards confidently."
-        },
-        {
-          type: "text",
-          title: "Formulas vs. multiply by metric — the logic behind the choice",
-          body: "You can price a movement two ways: by formula (base + km × rate) or by metric (multiply X by weight). Formulas handle variable, distance-driven pricing; metrics handle flat or tiered structures. Pick the one that matches how your customer actually quotes."
-        },
-        {
-          type: "text",
-          title: "The top 5 configurations that cover most use cases",
-          body: "80% of rate cards fall into five patterns: flat rate per order, per-km with minimum, per-pallet tiered, zone-based, and fuel-surcharge-adjusted. Learn these five and you can configure most new customers without help."
-        },
-        {
-          type: "text",
-          title: "UK pallet networks: collections, deliveries, and local area logic",
-          body: "Pallet networks have their own pricing quirks: collections and deliveries priced separately, local area discounts, and network-specific surcharges. Qargo supports these natively — knowing where each setting lives saves hours of trial and error."
-        },
-        {
-          type: "text",
-          title: "How to update rates at year-start (reducing long-term support calls)",
-          body: "Most customers update rates annually. Qargo supports time-bound rate cards so you can queue next year's rates in advance and have them activate automatically. This single change most reduces support calls in January."
-        }
-      ]
-    },
-    {
-      id: "m6-configuration",
-      code: "M6",
-      emoji: "⚙️",
-      title: "Configuration — Surcharges, Vehicles & Tasks",
-      description: "System configuration the operational manager owns and maintains.",
-      roles: ["ops_manager"],
-      blocks: [
-        {
-          type: "text",
-          title: "Vehicle categories and how they affect planning",
-          body: "Vehicle categories tell the planner what kind of load a vehicle can take — reefer, tail-lift, 7.5t, ADR. Planning rules use categories to prevent unsuitable assignments. Keeping this data clean prevents silent mis-allocations."
-        },
-        {
-          type: "text",
-          title: "Surcharge setup: when and how to add them",
-          body: "Surcharges cover everything that isn't the base rate: fuel, waiting time, weekend work, tolls. They're attached to the rate card but calculated separately so they show as distinct lines on the invoice. Customers appreciate the transparency."
-        },
-        {
-          type: "text",
-          title: "Tasks: choosing the right level (stop / consignment / order / trip)",
-          body: "Tasks are checklist items the driver or dispatcher must complete. The level you attach them to determines when and how often they appear. Picking the wrong level is the most common configuration mistake — choose carefully."
-        },
-        {
-          type: "text",
-          title: "Using conditions to automate task triggers",
-          body: "Conditions let a task appear only when certain criteria are met (only for reefer loads, only for customer X). This keeps the driver app uncluttered and prevents tasks being skipped because they're irrelevant."
-        }
-      ]
-    },
-    {
-      id: "m7-reporting",
-      code: "M7",
-      emoji: "📊",
-      title: "Reporting & Exports",
-      description: "Getting the right data out of Qargo for analysis, compliance, and customer billing.",
-      roles: ["ops_manager", "leadership"],
-      blocks: [
-        {
-          type: "text",
-          title: "Which export type to use for which data need",
-          body: "Qargo offers several export types: operational (trips, orders), financial (invoices, credit notes), and master-data (customers, rate cards). Picking the right one saves you from joining data in Excel later."
-        },
-        {
-          type: "text",
-          title: "The most useful fields and how to find them",
-          body: "Not every column is useful. The fields that reliably answer real questions: order status, planned vs actual times, invoice amount, rate card ID, customer reference. Start from these five and expand from there."
-        },
-        {
-          type: "text",
-          title: "Building a reusable report layout",
-          body: "Save your column selection and filter set as a named layout. Everyone on the team then pulls the same view, which kills the 'but my numbers are different' problem at its root."
-        },
-        {
-          type: "text",
-          title: "What cannot be exported and why",
-          body: "Some data stays inside Qargo: live planning board state, audit trails beyond 12 months, and anything involving linked documents. If you need any of these, use the API or contact support — don't try to rebuild them from exports."
-        }
-      ]
-    },
-    {
-      id: "m9-document-templates",
-      code: "M9",
-      emoji: "📄",
-      title: "Document Templates",
-      description: "Advanced module — for managers ready to customise driver and customer documents.",
-      roles: ["finance", "ops_admin"],
-      blocks: [
-        {
-          type: "text",
-          title: "What document templates are used for (CMRs, delivery notes, etc.)",
-          body: "Document templates generate PDFs that drivers print or customers receive: CMRs, delivery notes, proof-of-delivery receipts, invoices. The template controls layout, branding, and which fields appear."
-        },
-        {
-          type: "text",
-          title: "Handlebar expressions: a plain-language introduction",
-          body: "Templates use Handlebars — a simple placeholder language where {{order.reference}} becomes the actual order reference when the PDF is generated. Once you've seen three examples, you can read any template."
-        },
-        {
-          type: "text",
-          title: "If/then logic: practical examples for common use cases",
-          body: "Conditional blocks let you show or hide sections based on data: print the reefer temperature only for reefer loads, show the ADR warning only for hazardous goods. This keeps one template usable for many scenarios."
-        },
-        {
-          type: "text",
-          title: "When to configure independently vs. when to ask for help",
-          body: "Minor text changes, branding swaps, and reordering fields are safe to do yourself. Introducing new data fields, changing calculations, or building multi-page conditional layouts is better done with support — it's faster and avoids breakage."
-        }
-      ]
-    }
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m3-stops-and-trips",    code: "M3", title: "Stops and Trips",
+      description: "How orders translate into executable transport tasks.",
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m4-planning-basics",    code: "M4", title: "Planning Basics",
+      description: "Running the planning board and allocating drivers and vehicles.",
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m5-finance-invoicing",  code: "M5", title: "Finance and Invoicing",
+      description: "Invoicing runs, credit notes, approvals and common errors.",
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m6-rate-cards",         code: "M6", title: "Rate Cards",
+      description: "The pricing engine. Transport charges, calculation tables and year-start updates.",
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m7-advanced-config",    code: "M7", title: "Advanced Configuration",
+      description: "Surcharges, vehicle categories, tasks and conditional automation.",
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m8-reporting-exports",  code: "M8", title: "Reporting and Exports",
+      description: "Getting the right data out for analysis, compliance and customer billing.",
+      roles: ["super_admin"], locked: true, blocks: [] },
+    { id: "m9-document-templates", code: "M9", title: "Document Templates",
+      description: "CMRs, delivery notes and proof-of-delivery layouts. Handlebar expressions explained.",
+      roles: ["super_admin"], locked: true, blocks: [] },
   ];
+
+  const LEARNING_PATH = {
+    id: "super-admin-first-mile",
+    title: "The first mile: all aboard Qargo",
+    description: "The full Super Admin onboarding journey. Ten modules, from the logic of Qargo to building your first document templates.",
+    modules: MODULES,
+  };
+
+  const SPECIALISED_MODULES = [
+    { id: "sp-palletline",    title: "Palletline",
+      description: "Network-specific setup, consignment rules and hub flows for Palletline members." },
+    { id: "sp-palletforce",   title: "Palletforce",
+      description: "Palletforce trunking, hub operations and consignment requirements." },
+    { id: "sp-upn",           title: "UPN",
+      description: "UPN-specific workflows, labels and reporting conventions." },
+    { id: "sp-pallex-fortec", title: "Pall-Ex / Fortec",
+      description: "Pall-Ex and Fortec network configuration, consignments and manifesting." },
+    { id: "sp-hachzem",       title: "Hachzem",
+      description: "Hachzem-specific order flows and integration requirements." },
+    { id: "sp-tpn",           title: "TPN",
+      description: "TPN hub processes, labels and member-to-member movements." },
+    { id: "sp-qargo-intel",   title: "Qargo Intelligence",
+      description: "Dashboards, saved reports and the analytics layer of Qargo." },
+  ];
+
+  const EXTRA_CURRICULAR = [
+    { id: "ec-gdpr",        title: "GDPR",
+      description: "Data protection principles for transport and logistics teams." },
+    { id: "ec-its",         title: "ITS",
+      description: "Intelligent Transport Systems fundamentals and how they connect to Qargo." },
+    { id: "ec-ai-literacy", title: "AI Literacy",
+      description: "Working safely and usefully with AI tools in a logistics context." },
+    { id: "ec-efti",        title: "eFTI Regulation",
+      description: "Electronic Freight Transport Information: what it means and how to prepare." },
+  ];
+
+  // Alias so existing helpers that look up a module by id keep working.
+  const COURSES = MODULES;
 
   /* =========================================================================
      LEARNER IDENTITY + REPORTING
@@ -1225,6 +1976,59 @@
      ========================================================================= */
   const LS_LEARNER   = "academy.learner";
   const LS_COMPLETED = "academy.completed";
+  const LS_PROGRESS  = "academy.progress"; // { [moduleId]: { lastLessonIdx, completedLessons: [lessonId...] } }
+
+  /* Return a module's lessons. If a module still uses the flat `blocks` shape
+     (legacy or placeholder), wrap each block as its own one-block lesson. */
+  function lessonsOf(m) {
+    if (Array.isArray(m.lessons) && m.lessons.length) return m.lessons;
+    if (Array.isArray(m.blocks) && m.blocks.length) {
+      return m.blocks.map((b, i) => ({
+        id: `${m.id}-legacy-${i}`,
+        title: b.title || `Lesson ${i + 1}`,
+        blocks: [b],
+      }));
+    }
+    return [];
+  }
+  function moduleLessonCount(m) { return lessonsOf(m).length; }
+  function moduleBlockCount(m)  { return lessonsOf(m).reduce((n, l) => n + (l.blocks?.length || 0), 0); }
+
+  function getProgressAll() {
+    try { return JSON.parse(localStorage.getItem(LS_PROGRESS) || "{}"); }
+    catch { return {}; }
+  }
+  function getModuleProgress(moduleId) {
+    const all = getProgressAll();
+    return all[moduleId] || { lastLessonId: null, completedLessons: [] };
+  }
+  function setModuleProgress(moduleId, progress) {
+    const all = getProgressAll();
+    all[moduleId] = progress;
+    localStorage.setItem(LS_PROGRESS, JSON.stringify(all));
+  }
+  function markLessonDone(moduleId, lessonId) {
+    const p = getModuleProgress(moduleId);
+    if (!p.completedLessons.includes(lessonId)) p.completedLessons.push(lessonId);
+    p.lastLessonId = lessonId;
+    setModuleProgress(moduleId, p);
+  }
+  /* Path-level progress: % of unlocked-module lessons the learner has finished. */
+  function getPathProgress() {
+    const unlocked = MODULES.filter(m => !m.locked && moduleLessonCount(m) > 0);
+    if (!unlocked.length) return { pct: 0, started: false, completedModules: 0, totalModules: MODULES.length };
+    let totalLessons = 0, doneLessons = 0, startedAny = false, completedModules = 0;
+    for (const m of unlocked) {
+      const lessons = moduleLessonCount(m);
+      const p = getModuleProgress(m.id);
+      totalLessons += lessons;
+      doneLessons += p.completedLessons.length;
+      if (p.completedLessons.length > 0) startedAny = true;
+      if (p.completedLessons.length >= lessons) completedModules++;
+    }
+    const pct = totalLessons ? Math.round((doneLessons / totalLessons) * 100) : 0;
+    return { pct, started: startedAny, completedModules, totalModules: MODULES.length };
+  }
 
   function getLearner() {
     try { return JSON.parse(localStorage.getItem(LS_LEARNER) || "null"); }
@@ -1271,9 +2075,12 @@
     if (document.getElementById("id-modal")) return;
     const existing = getLearner() || {};
     const isEdit = !!existing.name;
-    const roleOptions = ROLES.map(r =>
-      `<option value="${r.id}" ${existing.role === r.id ? "selected" : ""}>${escape(r.label)}</option>`
-    ).join("");
+    const roleOptions = ROLES.map(r => {
+      const label = r.available ? r.label : `${r.label} (coming soon)`;
+      const disabledAttr = r.available ? "" : "disabled";
+      const selectedAttr = existing.role === r.id && r.available ? "selected" : "";
+      return `<option value="${r.id}" ${selectedAttr} ${disabledAttr}>${escape(label)}</option>`;
+    }).join("");
     const back = document.createElement("div");
     back.className = "modal-backdrop";
     back.id = "id-modal";
@@ -1341,7 +2148,7 @@
     const learner = getLearner();
     if (!learner) return;
     if (!markCompleted(course.id)) return;     // already reported on this browser
-    toast("Course completed 🎉");
+    toast("Module completed");
     if (!REPORTING_ENDPOINT) return;           // offline / not configured
     try {
       await fetch(REPORTING_ENDPOINT, {
@@ -1382,173 +2189,242 @@
   function renderCatalog() {
     crumbs.textContent = "";
     app.classList.remove("course-view");
+    app.classList.add("home-view");
     document.body.classList.remove("in-course");
     const learner = getLearner();
     const role = learner?.role;
     const done = getCompleted();
 
-    const recommended = role ? COURSES.filter(c => (c.roles || []).includes(role)) : [];
-    const others = role ? COURSES.filter(c => !(c.roles || []).includes(role)) : COURSES;
+    // Path progress drives the CTA label on the learning-path card.
+    const pathProgress = getPathProgress();
+    const pathPct = pathProgress.pct;
+    const pathStarted = pathProgress.started;
 
-    // Stats
-    const completedCount = Object.keys(done).length;
-    const inProgressCount = Math.max(COURSES.length - completedCount, 0);
-    const learningMinutes = COURSES.reduce((acc, c) => acc + (c.blocks?.length || 0) * 3, 0); // ~3 min per block
+    // Stats: total module count, completed module count, and a rough learning-time
+    // figure built from every unlocked block in the path (roughly 2 minutes per block).
+    const unlockedModules = MODULES.filter(m => !m.locked);
+    const inProgressCount = Math.max(MODULES.length - pathProgress.completedModules, 0);
+    const certsEarned = pathProgress.completedModules;
+    const learningMinutes = unlockedModules.reduce((acc, m) => acc + moduleBlockCount(m) * 2, 0);
     const learningHours = Math.max(1, Math.round(learningMinutes / 60));
 
-    // "Continue Learning" — first non-completed recommended course, else first non-completed overall
-    const continueCourse =
-      (role ? recommended : COURSES).find(c => !done[c.id]) ||
-      COURSES.find(c => !done[c.id]) ||
-      null;
-    // Fake a persistent-ish progress number based on course id so it looks alive.
-    const fakePct = continueCourse
-      ? 10 + (Array.from(continueCourse.id).reduce((a,ch)=>a+ch.charCodeAt(0),0) % 70)
-      : 0;
+    // Find the next unlocked module the learner hasn't fully finished. That's
+    // the deep-link target for "Continue learning".
+    const learnerName = learner?.name || "";
+    const nextModule = unlockedModules.find(m => {
+      const p = getModuleProgress(m.id);
+      return p.completedLessons.length < moduleLessonCount(m);
+    }) || unlockedModules[0] || null;
+
+    // Seeded leaderboard so the same order shows up across renders. The
+    // current learner is spliced in at row 3 when we know their name.
+    const leaderboard = [
+      { name: "Priya Shah",     company: "Ashworth Logistics", score: 1840 },
+      { name: "Lukas Berger",   company: "Berger Transport",   score: 1675 },
+      { name: "Femke de Vries", company: "NordEuro Freight",   score: 1510 },
+      { name: "Marco Rinaldi",  company: "Rinaldi & Figli",    score: 1395 },
+      { name: "Ava Thompson",   company: "Northlane Haulage",  score: 1280 },
+    ];
+    if (learnerName) {
+      const selfScore = 520 + (Array.from(learnerName).reduce((a, c) => a + c.charCodeAt(0), 0) % 380);
+      leaderboard.splice(2, 0, { name: learnerName, company: learner?.company || "", score: selfScore, isYou: true });
+    }
+    leaderboard.sort((a, b) => b.score - a.score);
+
+    const pathCtaLabel = pathStarted ? "Continue learning" : "Start learning path";
 
     app.innerHTML = `
-      <section class="hero">
-        <div class="eyebrow">Qargo Academy</div>
-        <h1>Learn the Qargo way.</h1>
-        <p>Short, focused courses that help your team get the most from Qargo — from order entry to invoicing, and everything in between.</p>
-        <div class="cta-row">
-          <a class="btn btn-primary" id="hero-start" href="#/">
-            Start Learning
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </a>
-          <a class="btn btn-ghost" href="#/">Browse All Courses</a>
-        </div>
-      </section>
-
-      <section class="stats" aria-label="Your learning stats">
-        <div class="stat-card">
-          <div class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
-          </div>
-          <div>
-            <div class="num">${inProgressCount}</div>
-            <div class="label">Courses in Progress</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89 7 22l5-3 5 3-1.21-8.11"/></svg>
-          </div>
-          <div>
-            <div class="num">${completedCount}</div>
-            <div class="label">Certifications Earned</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <div>
-            <div class="num">${learningHours}h</div>
-            <div class="label">Learning Time</div>
+      <section class="home-hero">
+        <div class="home-hero-inner">
+          <div class="eyebrow">Qargo Academy</div>
+          <h1>Learn the Qargo way.</h1>
+          <p>Short, focused courses that help your team get the most from Qargo, from order entry to invoicing and everything in between.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" id="hero-start" href="${nextModule ? `#/course/${nextModule.id}` : "#/"}">
+              Quick start
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </a>
+            <a class="btn btn-ghost" id="hero-browse" href="#/">Browse All Courses</a>
           </div>
         </div>
       </section>
-
+      <div class="home-content">
       ${role ? `
-        <div class="section-header">
+        <div class="section-header home-section-header">
           <div>
             <h2 class="title">Recommended for you</h2>
             <p class="sub">Curated for <span class="role-accent">${escape(roleLabel(role))}</span></p>
           </div>
-          <a class="view-all" href="#/">View all
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </a>
         </div>
-        <div class="grid" id="catalog-recommended"></div>
       ` : ""}
+      <div class="home-layout">
+        <div class="home-main">
+          ${role ? `
+            <article class="path-card">
+              <div class="path-card-head">
+                <div class="path-meta">
+                  <span class="path-code">Learning path</span>
+                  <span class="dot-sep">·</span>
+                  <span>${MODULES.length} modules</span>
+                  <span class="dot-sep">·</span>
+                  <span>~${learningHours}h total</span>
+                </div>
+                <h3>${escape(LEARNING_PATH.title)}</h3>
+                <p>${escape(LEARNING_PATH.description)}</p>
+              </div>
+              <ol class="path-module-list">
+                ${MODULES.map((m) => {
+                  const p = getModuleProgress(m.id);
+                  const lessons = moduleLessonCount(m);
+                  const moduleDone = !m.locked && lessons > 0 && p.completedLessons.length >= lessons;
+                  const moduleStarted = !m.locked && p.completedLessons.length > 0 && !moduleDone;
+                  const state = m.locked ? "locked" : moduleDone ? "done" : moduleStarted ? "active" : "ready";
+                  const clickable = !m.locked && lessons > 0;
+                  const Tag = clickable ? "a" : "div";
+                  const hrefAttr = clickable ? ` href="#/course/${m.id}"` : "";
+                  return `<${Tag} class="path-step path-step--${state}"${hrefAttr}>
+                    <span class="step-code">${escape(m.code)}</span>
+                    <span class="step-title">${escape(m.title)}</span>
+                    <span class="step-status">${m.locked ? "Locked" : moduleDone ? "Completed" : moduleStarted ? "In progress" : "Not started"}</span>
+                  </${Tag}>`;
+                }).join("")}
+              </ol>
+              <div class="path-card-foot">
+                <div class="path-progress">
+                  <div class="bar"><span style="width:${pathPct}%"></span></div>
+                  <div class="pct">${pathPct}% complete</div>
+                </div>
+                <a class="btn btn-primary" id="path-cta" href="${nextModule ? `#/course/${nextModule.id}` : "#/"}">
+                  ${pathCtaLabel}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </a>
+              </div>
+            </article>
+          ` : ""}
 
-      ${continueCourse ? `
-        <div class="section-header" style="margin-top:8px">
-          <div>
-            <h2 class="title">Continue Learning</h2>
-          </div>
-        </div>
-        <a class="continue-card" href="#/course/${continueCourse.id}">
-          <div class="icon" aria-hidden="true" style="font-size:24px">${continueCourse.emoji || "📘"}</div>
-          <div class="body">
-            <div class="t">${continueCourse.code ? escape(continueCourse.code) + " · " : ""}${escape(continueCourse.title)}</div>
-            <div class="d">${escape(continueCourse.description || "")}</div>
-            <div class="bar-row">
-              <div class="bar"><span style="width:${fakePct}%"></span></div>
-              <div class="pct">${fakePct}%</div>
+          <div class="section-header" style="margin-top:28px">
+            <div>
+              <h2 class="title">Specialised modules</h2>
+              <p class="sub">Network-specific modules. Available once your learning path is complete.</p>
             </div>
           </div>
-          <span class="resume">Resume
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </span>
-        </a>
-      ` : ""}
+          <div class="grid" id="catalog-specialised"></div>
 
-      ${others.length ? `
-        <div class="section-header" style="margin-top:28px">
-          <div>
-            <h2 class="title">${role ? "Other modules" : "All modules"}</h2>
-            ${role ? `<p class="sub">Useful context — outside your recommended path</p>` : ""}
+          <div class="section-header" style="margin-top:28px">
+            <div>
+              <h2 class="title">Extra-curricular</h2>
+              <p class="sub">Regulatory and soft-skill training. Coming soon.</p>
+            </div>
           </div>
+          <div class="grid" id="catalog-extra"></div>
         </div>
-        <div class="grid" id="catalog-others"></div>
-      ` : ""}
+
+        <aside class="home-side">
+          <section class="side-block" data-collapsed="false">
+            <button type="button" class="side-block-head" aria-expanded="true" data-toggle="collapse">
+              <h3 class="side-title">Learner progress</h3>
+              <svg class="side-block-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="side-block-body">
+              <ul class="side-stats">
+                <li>
+                  <div class="num">${inProgressCount}</div>
+                  <div class="label">In progress</div>
+                </li>
+                <li>
+                  <div class="num">${certsEarned}</div>
+                  <div class="label">Certifications</div>
+                </li>
+                <li>
+                  <div class="num">${learningHours}h</div>
+                  <div class="label">Learning time</div>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="side-block" data-collapsed="false">
+            <button type="button" class="side-block-head" aria-expanded="true" data-toggle="collapse">
+              <h3 class="side-title">Leaderboard</h3>
+              <svg class="side-block-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="side-block-body">
+              <p class="side-sub">Top learners this month across Qargo customers.</p>
+              <ol class="leaderboard">
+                ${leaderboard.slice(0, 6).map((row, i) => `
+                  <li class="${row.isYou ? "is-you" : ""}">
+                    <span class="rank">${i + 1}</span>
+                    <span class="who">
+                      <span class="nm">${escape(row.name)}${row.isYou ? ' <span class="you-chip">You</span>' : ""}</span>
+                      ${row.company ? `<span class="co">${escape(row.company)}</span>` : ""}
+                    </span>
+                    <span class="pts">${row.score.toLocaleString()} pts</span>
+                  </li>
+                `).join("")}
+              </ol>
+            </div>
+          </section>
+        </aside>
+      </div>
+      </div>
     `;
 
-    // Wire up "Start Learning" to scroll to the recommended section
+    // Wire up "Start Learning" and "Browse All Courses" to navigate or scroll.
     const startBtn = document.getElementById("hero-start");
     if (startBtn) {
       startBtn.addEventListener("click", (e) => {
+        if (nextModule) return; // let the anchor navigate
         e.preventDefault();
-        const target = continueCourse
-          ? document.querySelector(".continue-card")
-          : document.querySelector(".grid");
+        const target = document.querySelector(".path-card") || document.querySelector(".grid");
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    const browseBtn = document.getElementById("hero-browse");
+    if (browseBtn) {
+      browseBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const target = document.querySelector(".path-card") || document.querySelector(".grid");
         if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }
 
-    const renderInto = (selector, list) => {
+    const renderLocked = (selector, list) => {
       const grid = document.querySelector(selector);
-      if (!grid) return;
-      if (!list.length) {
-        grid.outerHTML = `<p class="lead" style="margin-top:-8px">No courses yet for this role — check back soon.</p>`;
-        return;
-      }
+      if (!grid || !list.length) return;
       for (const c of list) {
-        const card = document.createElement("a");
-        card.className = "card";
-        card.href = `#/course/${c.id}`;
-        // Meta: module code · N lessons · ~X min (rough estimate: 2 min/lesson)
-        const mins = Math.max(2, c.blocks.length * 2);
-        const metaParts = [];
-        if (c.code) metaParts.push(c.code);
-        metaParts.push(`${c.blocks.length} lesson${c.blocks.length === 1 ? "" : "s"}`);
-        metaParts.push(`~${mins} min`);
-        const metaHtml = metaParts.map((p, i) => {
-          return `<span>${escape(p)}</span>` + (i < metaParts.length - 1 ? `<span class="dot-sep">·</span>` : "");
-        }).join("");
-        const starBadge = c.star ? ' <span class="star-pill" title="Highest priority">★ Critical</span>' : "";
+        const card = document.createElement("div");
+        card.className = "card card-locked";
+        card.setAttribute("aria-disabled", "true");
         card.innerHTML = `
-          <div class="icon-tile" aria-hidden="true">${c.emoji || "📘"}</div>
-          <h3>${escape(c.title)}${starBadge}${done[c.id] ? ' <span class="done">✓ Completed</span>' : ""}</h3>
+          <div class="locked-badge">Coming soon</div>
+          <h3>${escape(c.title)}</h3>
           <p>${escape(c.description || "")}</p>
-          <div class="meta">${metaHtml}</div>
-          <span class="start-btn">${done[c.id] ? "Review module" : "Start module"}</span>
         `;
         grid.appendChild(card);
       }
     };
-    renderInto("#catalog-recommended", recommended);
-    renderInto("#catalog-others", others);
+    renderLocked("#catalog-specialised", SPECIALISED_MODULES);
+    renderLocked("#catalog-extra", EXTRA_CURRICULAR);
 
-    // Wire up the header search to filter catalog cards
+    // Collapsible side blocks (Learner progress + Leaderboard). Clicking the
+    // header toggles data-collapsed on the section, which the CSS animates.
+    document.querySelectorAll(".side-block [data-toggle='collapse']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const block = btn.closest(".side-block");
+        if (!block) return;
+        const nowCollapsed = block.getAttribute("data-collapsed") !== "true";
+        block.setAttribute("data-collapsed", String(nowCollapsed));
+        btn.setAttribute("aria-expanded", String(!nowCollapsed));
+      });
+    });
+
+    // Wire up the header search to filter whatever cards are visible on the page.
     const search = document.getElementById("course-search");
     if (search) {
       search.value = "";
       search.oninput = () => {
         const q = search.value.trim().toLowerCase();
-        document.querySelectorAll(".grid .card").forEach(card => {
+        document.querySelectorAll(".grid .card, .path-card").forEach(card => {
           const match = card.textContent.toLowerCase().includes(q);
           card.style.display = match ? "" : "none";
         });
@@ -1558,8 +2434,21 @@
 
   function countKinds(course) {
     const kinds = {};
-    for (const b of course.blocks) kinds[b.type] = (kinds[b.type] || 0) + 1;
-    const label = { text: "reading", quiz: "quiz", flashcards: "flashcards", match: "match" };
+    for (const l of lessonsOf(course)) {
+      for (const b of (l.blocks || [])) {
+        kinds[b.type] = (kinds[b.type] || 0) + 1;
+      }
+    }
+    const label = {
+      text: "reading",
+      accordion: "accordion",
+      flipcard: "flipcards",
+      flashcards: "flipcards",
+      match: "match",
+      embed: "interactive",
+      summary: "summary",
+      quiz: "quiz",
+    };
     return Object.entries(kinds).map(([k, n]) => `${n} ${label[k] || k}`).join(" · ");
   }
 
@@ -1577,39 +2466,95 @@
   }
 
   function renderCourse(course) {
-    // Course view uses a two-column layout — break out of the default max-width.
+    // Course view uses a two-column layout that breaks out of the default max-width.
     crumbs.textContent = "";
     app.classList.add("course-view");
+    app.classList.remove("home-view");
     document.body.classList.add("in-course");
 
-    const total = course.blocks.length;
+    const lessons = lessonsOf(course);
+
+    // Locked modules aren't playable yet — show a placeholder so anyone who
+    // deep-links to them lands on something coherent.
+    if (course.locked || !lessons.length) {
+      app.classList.remove("course-view");
+      app.classList.remove("home-view");
+      document.body.classList.remove("in-course");
+      app.innerHTML = `
+        <section class="hero">
+          <div class="eyebrow">${escape(course.code || "Module")}</div>
+          <h1>${escape(course.title)}</h1>
+          <p>${escape(course.description || "")}</p>
+          <div class="locked-panel">
+            <strong>Coming soon.</strong>
+            <p>This module is part of the Super Admin learning path but hasn't been built yet. Only <em>The Logic of Qargo</em> is playable in this preview.</p>
+            <div class="cta-row">
+              <a class="btn btn-primary" href="#/">Back to the learning path</a>
+            </div>
+          </div>
+        </section>
+      `;
+      return;
+    }
+
+    const total = lessons.length;
+    const persisted = getModuleProgress(course.id);
 
     // Build sidebar section items and the main content at the same time so
-    // indexes line up.
-    const sectionItems = course.blocks.map((b, i) => `
+    // indexes line up. Each lesson is one section; inside a section we render
+    // all of its blocks stacked.
+    const sectionItems = lessons.map((l, i) => `
       <li data-idx="${i}">
         <span class="dot"></span>
         <div>
-          <div>${escape(sectionTitleOf(b, i))}</div>
+          <div>${escape(l.title)}</div>
           <span class="status">Unstarted</span>
         </div>
       </li>
     `).join("");
 
-    const sectionWraps = course.blocks.map((b, i) => `
-      <div class="section-wrap" id="section-${i}" data-idx="${i}">
-        <div class="section-label">Lesson ${i + 1} of ${total}</div>
-        <h2 class="section-title">${escape(sectionTitleOf(b, i))}</h2>
-        <section class="block" data-block-idx="${i}"></section>
-      </div>
-    `).join("");
+    // Render each lesson as a section-wrap, with a full-width lesson-transition
+    // banner between it and the next lesson. The banner bleeds past the prose
+    // column so it looks like a newspaper section break.
+    const sectionPieces = lessons.map((l, i) => {
+      const blockSlots = (l.blocks || []).map((_, bi) =>
+        `<section class="block" data-block-idx="${bi}"></section>`
+      ).join("");
+      const sectionHtml = `
+        <div class="section-wrap" id="section-${i}" data-idx="${i}">
+          <div class="section-label">Lesson ${i + 1} of ${total}</div>
+          <h2 class="section-title">${escape(l.title)}</h2>
+          ${blockSlots}
+        </div>
+      `;
+      const isLast = i + 1 >= total;
+      const transitionHtml = isLast ? `
+        <div class="lesson-transition is-last" data-after-idx="${i}">
+          <button type="button" data-action="finish">
+            <span class="next-title">Module complete — back to learning path</span>
+          </button>
+        </div>
+      ` : `
+        <div class="lesson-transition" data-after-idx="${i}">
+          <button type="button" data-action="advance" data-to-idx="${i + 1}">
+            <span class="arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg></span>
+            <span class="next-title">${i + 2} of ${total} — ${escape(lessons[i + 1].title)}</span>
+          </button>
+        </div>
+      `;
+      return sectionHtml + transitionHtml;
+    }).join("");
 
     app.innerHTML = `
       <div class="course-layout">
-        <aside class="course-sidebar">
-          <a href="#/" class="back-link">← All modules</a>
+        <div class="course-sidebar-backdrop" id="course-sidebar-backdrop"></div>
+        <aside class="course-sidebar" id="course-sidebar" aria-hidden="true">
+          <button class="course-sidebar-close" type="button" id="course-sidebar-close" aria-label="Close table of contents">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+          <a href="#/" class="back-link">← Back to learning path</a>
           <div class="eyebrow">${escape(course.code || "Module")}</div>
-          <h2 class="course-title">${course.emoji || ""} ${escape(course.title)}</h2>
+          <h2 class="course-title">${escape(course.title)}</h2>
           <div class="pct-row">
             <span id="pct-label">0% complete</span>
           </div>
@@ -1618,15 +2563,25 @@
         </aside>
         <div class="course-main">
           <div class="course-hero">
-            <div class="meta">${total} lesson${total === 1 ? "" : "s"}</div>
-            <h1>${course.emoji || ""} ${escape(course.title)}</h1>
-            ${course.description ? `<p>${escape(course.description)}</p>` : ""}
+            <div class="hero-inner">
+              <div class="meta">${escape(course.code || "Module")} · ${total} lesson${total === 1 ? "" : "s"}</div>
+              <h1>${escape(course.title)}</h1>
+              ${course.description ? `<p>${escape(course.description)}</p>` : ""}
+            </div>
+            <button class="hero-start" id="hero-start-btn" type="button">
+              Start module
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+            </button>
           </div>
-          ${sectionWraps}
-          <div class="course-nav">
-            <a href="#/">← All modules</a>
-          </div>
+          ${sectionPieces}
         </div>
+        <button class="course-pin" id="course-pin" type="button" aria-expanded="false" aria-controls="course-sidebar">
+          <div class="pin-text">
+            <div class="pin-eyebrow" id="pin-eyebrow">Lesson 1 of ${total}</div>
+            <div class="pin-title" id="pin-title">${escape(lessons[0].title)}</div>
+          </div>
+          <svg class="pin-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+        </button>
       </div>
     `;
 
@@ -1635,39 +2590,172 @@
     const sidebarLis = Array.from(document.querySelectorAll("#sections li"));
     const pctFill = document.getElementById("pct-fill");
     const pctLabel = document.getElementById("pct-label");
+    const sidebarEl = document.getElementById("course-sidebar");
+    const sidebarBackdrop = document.getElementById("course-sidebar-backdrop");
+    const sidebarCloseBtn = document.getElementById("course-sidebar-close");
+    const pinBtn = document.getElementById("course-pin");
+    const pinEyebrow = document.getElementById("pin-eyebrow");
+    const pinTitle = document.getElementById("pin-title");
 
-    // Click sidebar entry → smooth-scroll to the corresponding section.
+    // Drawer open/close helpers for the collapsible table of contents.
+    const openDrawer = () => {
+      sidebarEl.setAttribute("aria-hidden", "false");
+      sidebarBackdrop.classList.add("visible");
+      pinBtn.setAttribute("aria-expanded", "true");
+    };
+    const closeDrawer = () => {
+      sidebarEl.setAttribute("aria-hidden", "true");
+      sidebarBackdrop.classList.remove("visible");
+      pinBtn.setAttribute("aria-expanded", "false");
+    };
+    pinBtn.addEventListener("click", openDrawer);
+    sidebarBackdrop.addEventListener("click", closeDrawer);
+    sidebarCloseBtn.addEventListener("click", closeDrawer);
+
+    // "Start module" hero CTA → smooth-scroll to the first lesson.
+    const heroStartBtn = document.getElementById("hero-start-btn");
+    if (heroStartBtn) {
+      heroStartBtn.addEventListener("click", () => {
+        const first = document.getElementById("section-0");
+        if (first) first.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    // Progressive reveal — only lessons up to `revealedIdx` are visible. The
+    // lesson-transition banner between revealedIdx and revealedIdx+1 is the
+    // visible gate; scrolling past it is impossible because nothing follows
+    // in the DOM until the learner clicks the button.
+    const transitionEls = Array.from(document.querySelectorAll(".lesson-transition"));
+    // If the learner previously reached partway through, restore that point so
+    // they aren't re-locked out of lessons they already saw.
+    let revealedIdx = 0;
+    for (let i = total - 1; i >= 0; i--) {
+      if (persisted.completedLessons.includes(lessons[i].id)) {
+        revealedIdx = Math.min(i + 1, total - 1);
+        break;
+      }
+    }
+
+    function applyReveal() {
+      sectionEls.forEach((el, i) => {
+        el.classList.toggle("is-locked", i > revealedIdx);
+      });
+      transitionEls.forEach(t => {
+        const afterIdx = Number(t.dataset.afterIdx);
+        t.classList.toggle("is-locked", afterIdx > revealedIdx);
+      });
+    }
+    applyReveal();
+
+    // Wire advance / finish buttons on every lesson-transition.
+    transitionEls.forEach(t => {
+      const btn = t.querySelector("button");
+      if (!btn) return;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const action = btn.dataset.action;
+        if (action === "finish") {
+          location.hash = "#/";
+          return;
+        }
+        const toIdx = Number(btn.dataset.toIdx);
+        if (toIdx > revealedIdx) revealedIdx = toIdx;
+        applyReveal();
+        // Let the browser paint the newly-revealed section before scrolling +
+        // animating, otherwise the animation starts partially scrolled-past.
+        requestAnimationFrame(() => {
+          const target = document.getElementById("section-" + toIdx);
+          if (!target) return;
+          target.classList.remove("just-revealed");
+          // Force reflow so the animation restarts cleanly.
+          void target.offsetWidth;
+          target.classList.add("just-revealed");
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+    });
+
+    // Fade + slide the lesson-transition banner into view as the learner
+    // reaches the end of a lesson's content.
+    const fadeSpy = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add("in-view");
+      });
+    }, { threshold: 0.15 });
+    transitionEls.forEach(t => fadeSpy.observe(t));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && sidebarEl.getAttribute("aria-hidden") === "false") closeDrawer();
+    });
+
+    // Click sidebar entry → smooth-scroll to the corresponding section AND close drawer.
     sidebarLis.forEach(li => {
       li.addEventListener("click", () => {
         const idx = Number(li.dataset.idx);
         const target = document.getElementById("section-" + idx);
         if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        closeDrawer();
       });
     });
 
-    // Render each block into its inner .block element and wire completion.
-    course.blocks.forEach((block, i) => {
-      const el = sectionEls[i].querySelector(".block");
-      // Flag sections that host an embed so we can let them break out of the
-      // prose column via CSS (for browsers without :has() support).
-      if (block.type === "embed") sectionEls[i].classList.add("has-embed");
-      const markDone = () => {
-        if (!completion[i]) {
-          completion[i] = true;
-          sidebarLis[i].classList.add("done");
-          const statusEl = sidebarLis[i].querySelector(".status");
-          if (statusEl) statusEl.textContent = "Completed";
-          const doneCount = completion.filter(Boolean).length;
-          const pct = Math.round((doneCount / total) * 100);
-          pctFill.style.width = pct + "%";
-          pctLabel.textContent = pct + "% complete";
-          if (doneCount === total) reportCompletion(course);
-        }
+    // Render each lesson's blocks into their inner .block shells.
+    // A lesson is only marked complete once every block inside it has signalled done.
+    lessons.forEach((lesson, i) => {
+      const sectionEl = sectionEls[i];
+      const blockEls = Array.from(sectionEl.querySelectorAll(".block"));
+      const blocks = lesson.blocks || [];
+
+      // Flag the section as hosting an embed so it can break out of the prose column.
+      if (blocks.some(b => b.type === "embed")) sectionEl.classList.add("has-embed");
+
+      const alreadyDone = persisted.completedLessons.includes(lesson.id);
+      // Track per-block completion within this lesson.
+      const blockDone = new Array(blocks.length).fill(false);
+
+      const markLessonCompleteUI = () => {
+        if (completion[i]) return;
+        completion[i] = true;
+        sidebarLis[i].classList.add("done");
+        const statusEl = sidebarLis[i].querySelector(".status");
+        if (statusEl) statusEl.textContent = "Completed";
+        markLessonDone(course.id, lesson.id);
+        const doneCount = completion.filter(Boolean).length;
+        const pct = Math.round((doneCount / total) * 100);
+        pctFill.style.width = pct + "%";
+        pctLabel.textContent = pct + "% complete";
+        if (doneCount === total) reportCompletion(course);
       };
-      renderBlock(el, block, markDone);
+
+      // Pre-seed UI if the learner previously finished this lesson.
+      if (alreadyDone) {
+        completion[i] = true;
+        sidebarLis[i].classList.add("done");
+        const statusEl = sidebarLis[i].querySelector(".status");
+        if (statusEl) statusEl.textContent = "Completed";
+      }
+
+      // Render each block and wire its per-block done signal.
+      blocks.forEach((block, bi) => {
+        const el = blockEls[bi];
+        if (!el) return;
+        const markBlockDone = () => {
+          if (blockDone[bi]) return;
+          blockDone[bi] = true;
+          if (blockDone.every(Boolean)) markLessonCompleteUI();
+        };
+        renderBlock(el, block, markBlockDone);
+      });
     });
 
-    // Scroll-spy — highlight whichever section is currently in the viewport.
+    // Prime the progress bar from any pre-seeded completions.
+    const preDone = completion.filter(Boolean).length;
+    if (preDone) {
+      const prePct = Math.round((preDone / total) * 100);
+      pctFill.style.width = prePct + "%";
+      pctLabel.textContent = prePct + "% complete";
+    }
+
+    // Scroll-spy — highlight whichever section is currently in the viewport
+    // and keep the floating pin in sync with the current lesson.
     const spy = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -1681,6 +2769,12 @@
               if (statusEl) statusEl.textContent = "In progress";
             }
           }
+          // Update the floating pin text.
+          const lesson = lessons[idx];
+          if (lesson) {
+            pinEyebrow.textContent = `Lesson ${idx + 1} of ${total}`;
+            pinTitle.textContent = lesson.title;
+          }
         }
       });
     }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
@@ -1690,6 +2784,7 @@
   function renderNotFound() {
     crumbs.textContent = "";
     app.classList.remove("course-view");
+    app.classList.remove("home-view");
     app.innerHTML = `<h1>Not found</h1><p class="lead">That course doesn't exist. <a href="#/">Back to catalog</a></p>`;
   }
 
@@ -1699,8 +2794,11 @@
   function renderBlock(el, block, markDone) {
     switch (block.type) {
       case "text":       return renderText(el, block, markDone);
+      case "accordion":  return renderAccordion(el, block, markDone);
+      case "summary":    return renderSummary(el, block, markDone);
       case "quiz":       return renderQuiz(el, block, markDone);
       case "flashcards": return renderFlashcards(el, block, markDone);
+      case "flipcard":   return renderFlashcards(el, block, markDone);
       case "match":      return renderMatch(el, block, markDone);
       case "embed":      return renderEmbed(el, block, markDone);
       default:
@@ -1710,11 +2808,64 @@
 
   function renderText(el, block, markDone) {
     el.innerHTML = `
-      <span class="kind">Lesson</span>
+      <span class="kind">Article</span>
       ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
-      <div class="prose"><p>${escape(block.body)}</p></div>
+      <div class="prose">
+        ${block.lead ? `<p class="lead-p">${escape(block.lead)}</p>` : ""}
+        <p>${escape(block.body)}</p>
+      </div>
     `;
     // Reading lessons count as done on render — we assume the user read it.
+    markDone();
+  }
+
+  function renderAccordion(el, block, markDone) {
+    el.classList.add("accordion-block");
+    const items = Array.isArray(block.items) ? block.items : [];
+    el.innerHTML = `
+      <span class="kind">Accordion</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      ${block.intro ? `<p class="hint">${escape(block.intro)}</p>` : ""}
+      <div class="accordion">
+        ${items.map((it, i) => `
+          <div class="acc-row" data-idx="${i}">
+            <button class="acc-head" type="button" aria-expanded="false">
+              <span class="acc-q">${escape(it.q)}</span>
+              <svg class="acc-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="acc-body" hidden><p>${escape(it.a)}</p></div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+    const rows = Array.from(el.querySelectorAll(".acc-row"));
+    const opened = new Set();
+    rows.forEach(row => {
+      const head = row.querySelector(".acc-head");
+      const body = row.querySelector(".acc-body");
+      head.addEventListener("click", () => {
+        const isOpen = row.classList.toggle("open");
+        head.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        body.hidden = !isOpen;
+        if (isOpen) {
+          opened.add(row.dataset.idx);
+          if (opened.size >= rows.length) markDone();
+        }
+      });
+    });
+    if (!rows.length) markDone();
+  }
+
+  function renderSummary(el, block, markDone) {
+    el.classList.add("summary-block");
+    const points = Array.isArray(block.points) ? block.points : [];
+    el.innerHTML = `
+      <span class="kind">In summary</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      <ul class="summary-points">
+        ${points.map(p => `<li>${escape(p)}</li>`).join("")}
+      </ul>
+    `;
     markDone();
   }
 
@@ -1785,30 +2936,58 @@
   }
 
   function renderQuiz(el, block, markDone) {
+    el.classList.add("quiz");
+    // Build a unique name so multiple quizzes on a page don't share radios.
+    const groupName = "quiz-" + Math.random().toString(36).slice(2, 9);
+    const optionsHtml = block.options.map((opt, i) => `
+      <label class="opt" data-idx="${i}">
+        <input type="radio" name="${groupName}" value="${i}" />
+        <span class="radio-dot"></span>
+        <span class="opt-text">${escape(opt)}</span>
+      </label>
+    `).join("");
     el.innerHTML = `
       <span class="kind">Quiz</span>
       ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
-      <p>${escape(block.question)}</p>
-      <div class="options"></div>
+      <p class="quiz-question">${escape(block.question)}</p>
+      <form class="options" novalidate>
+        ${optionsHtml}
+      </form>
+      <div class="quiz-actions">
+        <button type="button" class="submit-btn" disabled>Submit answer</button>
+      </div>
       <div class="feedback" hidden></div>
     `;
     const opts = el.querySelector(".options");
     const fb = el.querySelector(".feedback");
-    block.options.forEach((opt, i) => {
-      const b = document.createElement("button");
-      b.className = "opt";
-      b.textContent = opt;
-      b.addEventListener("click", () => {
-        Array.from(opts.children).forEach(c => c.disabled = true);
-        const isRight = i === block.correct;
-        b.classList.add(isRight ? "correct" : "wrong");
-        if (!isRight) opts.children[block.correct].classList.add("correct");
-        fb.hidden = false;
-        fb.className = "feedback " + (isRight ? "good" : "bad");
-        fb.textContent = (isRight ? "Correct. " : "Not quite. ") + (block.explanation || "");
-        markDone();
+    const submitBtn = el.querySelector(".submit-btn");
+    const labels = Array.from(opts.querySelectorAll(".opt"));
+    const inputs = labels.map(l => l.querySelector("input"));
+
+    // Enable submit once the learner picks something; highlight the selected row.
+    inputs.forEach((inp, i) => {
+      inp.addEventListener("change", () => {
+        submitBtn.disabled = false;
+        labels.forEach(l => l.classList.remove("selected"));
+        labels[i].classList.add("selected");
       });
-      opts.appendChild(b);
+    });
+
+    submitBtn.addEventListener("click", () => {
+      const chosen = inputs.findIndex(inp => inp.checked);
+      if (chosen < 0) return;
+      const isRight = chosen === block.correct;
+      // Lock further interaction once submitted.
+      inputs.forEach(inp => { inp.disabled = true; });
+      labels.forEach(l => l.classList.add("locked"));
+      labels[chosen].classList.add(isRight ? "correct" : "wrong");
+      if (!isRight) labels[block.correct].classList.add("correct");
+      submitBtn.disabled = true;
+      submitBtn.textContent = isRight ? "Correct" : "Answer locked";
+      fb.hidden = false;
+      fb.className = "feedback " + (isRight ? "good" : "bad");
+      fb.textContent = (isRight ? "Correct. " : "Not quite. ") + (block.explanation || "");
+      markDone();
     });
   }
 
