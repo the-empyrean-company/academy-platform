@@ -2227,11 +2227,11 @@
     // Seeded leaderboard so the same order shows up across renders. The
     // current learner is spliced in at row 3 when we know their name.
     const leaderboard = [
-      { name: "Priya Shah",     company: "Ashworth Logistics", score: 1840 },
-      { name: "Lukas Berger",   company: "Berger Transport",   score: 1675 },
-      { name: "Femke de Vries", company: "NordEuro Freight",   score: 1510 },
-      { name: "Marco Rinaldi",  company: "Rinaldi & Figli",    score: 1395 },
-      { name: "Ava Thompson",   company: "Northlane Haulage",  score: 1280 },
+      { name: "Tom G.",     company: "Ashworth Logistics", score: 1840 },
+      { name: "Delphin B.",   company: "Berger Transport",   score: 1675 },
+      { name: "Liam B.", company: "NordEuro Freight",   score: 1510 },
+      { name: "Michiel M.",  company: "West Transport",    score: 1395 },
+      { name: "Lee H.",   company: "Northlane Haulage",  score: 1280 },
     ];
     if (learnerName) {
       const selfScore = 520 + (Array.from(learnerName).reduce((a, c) => a + c.charCodeAt(0), 0) % 380);
