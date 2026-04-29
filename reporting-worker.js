@@ -76,7 +76,6 @@
  */
 
 const ALLOW_ORIGIN = "*"; // tighten to your domain once you deploy the site
-const NOTION_VERSION = "2022-06-28";
 
 export default {
   async fetch(request, env) {
@@ -134,8 +133,9 @@ export default {
 
     const nowIso = new Date().toISOString();
 
-    // Always store the event in KV so the scheduled sync can pick it up
-    // regardless of whether Notion secrets are configured on this Worker.
+    // Store the event in KV. The scheduled sync task (academy-visitor-sync)
+    // reads from KV via GET /visits and handles all Notion writes — the Worker
+    // does not write to Notion directly.
     await storeEventInKV(env, {
       event,
       at: payload.at || nowIso,
@@ -149,79 +149,7 @@ export default {
       },
     });
 
-    // 1) Find existing row by Email (upsert key).
-    const existing = await findPageByEmail(env, email);
-
-    if (existing) {
-      // 2a) Update in place.
-      const props = existing.properties || {};
-      const currentMilestones = (props["Milestones"]?.multi_select || []).map(o => o.name);
-      const mergedMilestones = milestoneLabel && !currentMilestones.includes(milestoneLabel)
-        ? [...currentMilestones, milestoneLabel]
-        : currentMilestones;
-
-      const currentLoginCount = props["Login count"]?.number || 0;
-      const newLoginCount = event === "session_start" ? currentLoginCount + 1 : currentLoginCount;
-
-      const updatedProps = {
-        // Refresh fields that might have changed (rename, role change, company).
-        "Learner": { title: [{ text: { content: String(learner.name).slice(0, 200) } }] },
-        "Milestones": { multi_select: mergedMilestones.map(name => ({ name: name.slice(0, 100) })) },
-      };
-      if (learner.company) {
-        updatedProps["Company"] = { rich_text: [{ text: { content: String(learner.company).slice(0, 200) } }] };
-      }
-      if (learner.roleLabel) {
-        updatedProps["Role"] = { select: { name: String(learner.roleLabel).slice(0, 100) } };
-      }
-      if (event === "session_start") {
-        updatedProps["Latest login"] = { date: { start: nowIso } };
-        updatedProps["Login count"] = { number: newLoginCount };
-        if (country) updatedProps["Country"] = { rich_text: [{ text: { content: country } }] };
-      }
-      if (milestoneLabel) {
-        updatedProps["Last milestone"] = { rich_text: [{ text: { content: milestoneLabel.slice(0, 200) } }] };
-      }
-
-      const res = await fetch(`https://api.notion.com/v1/pages/${existing.id}`, {
-        method: "PATCH",
-        headers: notionHeaders(env),
-        body: JSON.stringify({ properties: updatedProps }),
-      });
-      if (!res.ok) return notionError(res, "patch");
-      return json({ ok: true, mode: "updated", id: existing.id });
-    }
-
-    // 2b) Create a new row.
-    const properties = {
-      "Learner": { title: [{ text: { content: String(learner.name).slice(0, 200) } }] },
-      "Email":   { email },
-    };
-    if (learner.company) {
-      properties["Company"] = { rich_text: [{ text: { content: String(learner.company).slice(0, 200) } }] };
-    }
-    if (learner.roleLabel) {
-      properties["Role"] = { select: { name: String(learner.roleLabel).slice(0, 100) } };
-    }
-    properties["Latest login"] = { date: { start: nowIso } };
-    properties["Login count"]  = { number: event === "session_start" ? 1 : 0 };
-    if (country) properties["Country"] = { rich_text: [{ text: { content: country } }] };
-    if (milestoneLabel) {
-      properties["Milestones"]    = { multi_select: [{ name: milestoneLabel.slice(0, 100) }] };
-      properties["Last milestone"] = { rich_text: [{ text: { content: milestoneLabel.slice(0, 200) } }] };
-    }
-
-    const res = await fetch("https://api.notion.com/v1/pages", {
-      method: "POST",
-      headers: notionHeaders(env),
-      body: JSON.stringify({
-        parent: { database_id: env.NOTION_DATABASE_ID },
-        properties,
-      }),
-    });
-    if (!res.ok) return notionError(res, "create");
-    const created = await res.json();
-    return json({ ok: true, mode: "created", id: created.id });
+    return json({ ok: true, stored: true });
   },
 };
 
@@ -301,42 +229,6 @@ async function storeEventInKV(env, entry) {
   await env.VISITS_KV.put(dateKey, JSON.stringify(existing));
 }
 
-/* -------------------------------------------------------------------------- */
-
-async function findPageByEmail(env, email) {
-  // Notion's data-source/database query: filter by Email property equals.
-  const res = await fetch(
-    `https://api.notion.com/v1/databases/${env.NOTION_DATABASE_ID}/query`,
-    {
-      method: "POST",
-      headers: notionHeaders(env),
-      body: JSON.stringify({
-        filter: { property: "Email", email: { equals: email } },
-        page_size: 1,
-      }),
-    }
-  );
-  if (!res.ok) {
-    console.error("notion query error", res.status, await res.text());
-    return null;
-  }
-  const data = await res.json();
-  return (data.results && data.results[0]) || null;
-}
-
-function notionHeaders(env) {
-  return {
-    "Authorization": `Bearer ${env.NOTION_TOKEN}`,
-    "Notion-Version": NOTION_VERSION,
-    "Content-Type": "application/json",
-  };
-}
-
-async function notionError(res, label) {
-  const text = await res.text();
-  console.error(`notion ${label} error`, res.status, text);
-  return json({ error: `notion ${label} rejected`, status: res.status, detail: text }, 502);
-}
 
 function corsHeaders() {
   return {
