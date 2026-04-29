@@ -833,21 +833,50 @@
     }
     .continue-card .resume:hover { background: var(--brand-800); text-decoration: none; }
 
-    /* Home layout: main column (hero, path, grids) + side block (stats, leaderboard) */
+    /* Home layout: main column (path, cert, grids) + sidebar (stats, badges,
+       leaderboard). On desktop the layout is locked to the viewport height
+       and each column scrolls independently — the hero and any banner above
+       scroll out via the page first, then the two-pane area takes over. */
     .home-layout {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 340px;
       gap: 32px;
-      align-items: start;
+      align-items: stretch;
+      height: calc(100vh - var(--header-h) - 24px);
     }
-    .home-main { min-width: 0; }
+    .home-main,
+    .home-side {
+      min-width: 0;
+      height: 100%;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-right: 6px; /* breathing room for scrollbar */
+    }
     .home-side {
       display: flex; flex-direction: column; gap: 18px;
-      position: sticky; top: calc(var(--header-h) + 24px);
+    }
+    /* Subtle scrollbar styling so the panes feel like quiet reading surfaces */
+    .home-main::-webkit-scrollbar,
+    .home-side::-webkit-scrollbar { width: 8px; }
+    .home-main::-webkit-scrollbar-thumb,
+    .home-side::-webkit-scrollbar-thumb {
+      background: var(--ink-100);
+      border-radius: 999px;
+    }
+    .home-main::-webkit-scrollbar-thumb:hover,
+    .home-side::-webkit-scrollbar-thumb:hover {
+      background: var(--ink-300);
     }
     @media (max-width: 1080px) {
-      .home-layout { grid-template-columns: 1fr; }
-      .home-side { position: static; }
+      .home-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .home-main, .home-side {
+        height: auto;
+        overflow: visible;
+        padding-right: 0;
+      }
     }
 
     .side-block {
@@ -856,6 +885,9 @@
       border-radius: 14px;
       box-shadow: var(--shadow-sm);
       overflow: hidden;
+      /* Inside the flex-column .home-side, prevent shrinking — let the column
+         scroll instead of compressing card contents. */
+      flex-shrink: 0;
     }
     .side-block-head {
       display: flex; align-items: center; justify-content: space-between;
@@ -880,12 +912,13 @@
     .side-block[data-collapsed="true"] .side-block-chev { transform: rotate(-90deg); }
     .side-block-body {
       padding: 4px 16px 16px;
-      max-height: 800px;
-      transition: max-height .25s ease, padding .2s ease, opacity .2s ease;
-      overflow: hidden;
+      transition: padding .2s ease, opacity .2s ease;
     }
     .side-block[data-collapsed="true"] .side-block-body {
-      max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0;
+      max-height: 0;
+      padding-top: 0; padding-bottom: 0;
+      opacity: 0;
+      overflow: hidden;
     }
     .side-sub { margin: 0 0 10px; font-size: 12px; color: var(--ink-500); }
 
@@ -1602,6 +1635,1341 @@
       .continue-card { flex-wrap: wrap; }
       .continue-card .resume { margin-left: auto; }
     }
+
+    /* =========================================================================
+       NEW BLOCKS — image, carousel, fillblanks, process, timeline, milestone, tutor
+       ========================================================================= */
+
+    /* Image */
+    .image-block .img-wrap {
+      margin-top: 6px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .image-block .img-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+    }
+    .image-block .caption {
+      margin: 12px 0 0;
+      font-size: 14px;
+      color: var(--ink-500);
+      line-height: 1.5;
+      font-style: italic;
+    }
+    .course-main .block.image-block .caption {
+      font-size: 16px;
+      font-style: normal;
+      color: var(--ink-500);
+      text-align: center;
+      max-width: 720px;
+      margin: 16px auto 0;
+    }
+
+    /* Carousel */
+    .carousel-block .car-frame {
+      position: relative;
+      margin-top: 6px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--brand-900);
+    }
+    .carousel-block .car-track {
+      display: flex;
+      transition: transform .4s cubic-bezier(.4,0,.2,1);
+    }
+    .carousel-block .car-slide {
+      flex: 0 0 100%;
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: var(--brand-900);
+    }
+    .carousel-block .car-slide img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .carousel-block .car-slide .car-cap {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      padding: 16px 20px;
+      background: linear-gradient(180deg, transparent, rgba(10,11,13,.85));
+      color: #fff;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .carousel-block .car-nav {
+      position: absolute; top: 50%;
+      width: 40px; height: 40px;
+      transform: translateY(-50%);
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255,255,255,.92);
+      color: var(--brand-900);
+      display: grid; place-items: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      transition: background .15s, opacity .15s;
+    }
+    .carousel-block .car-nav:hover { background: #fff; }
+    .carousel-block .car-nav[disabled] { opacity: .4; cursor: default; }
+    .carousel-block .car-nav.prev { left: 12px; }
+    .carousel-block .car-nav.next { right: 12px; }
+    .carousel-block .car-dots {
+      display: flex; justify-content: center; gap: 8px;
+      margin-top: 14px;
+    }
+    .carousel-block .car-dot {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: var(--ink-100);
+      border: 0;
+      cursor: pointer;
+      transition: background .15s, transform .15s;
+      padding: 0;
+    }
+    .carousel-block .car-dot.active {
+      background: var(--brand-600);
+      transform: scale(1.4);
+    }
+    .carousel-block .car-progress {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--ink-500);
+      text-align: center;
+    }
+
+    /* Fill-in-the-blanks */
+    .fillblanks-block .fill-text {
+      font-size: 16px;
+      line-height: 2.1;
+      color: var(--ink-900);
+      margin: 8px 0 0;
+    }
+    .course-main .block.fillblanks-block .fill-text {
+      font-size: 19px;
+      line-height: 2.2;
+    }
+    .fillblanks-block .blank {
+      display: inline-block;
+      min-width: 100px;
+      padding: 4px 10px;
+      margin: 0 2px;
+      border: 0;
+      border-bottom: 2px solid var(--brand-700);
+      background: var(--brand-50);
+      border-radius: 6px 6px 0 0;
+      color: var(--brand-900);
+      font: inherit;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+      transition: background .15s, border-color .15s;
+    }
+    .fillblanks-block .blank:focus {
+      background: var(--surface);
+      border-bottom-color: var(--brand-600);
+      box-shadow: 0 4px 0 -2px var(--brand-50);
+    }
+    .fillblanks-block .blank.correct {
+      background: rgba(16,185,129,.12);
+      border-bottom-color: var(--good);
+      color: var(--good);
+    }
+    .fillblanks-block .blank.wrong {
+      background: rgba(224,77,77,.10);
+      border-bottom-color: var(--bad);
+      color: var(--bad);
+    }
+    .fillblanks-block .reveal {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(16,185,129,.12);
+      color: var(--good);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .fillblanks-block .fill-actions {
+      display: flex; gap: 10px; align-items: center;
+      margin-top: 18px; flex-wrap: wrap;
+    }
+    .fillblanks-block .fill-feedback {
+      font-size: 14px;
+      color: var(--ink-500);
+    }
+    .fillblanks-block .fill-feedback.good { color: var(--good); }
+    .fillblanks-block .fill-feedback.bad  { color: var(--bad); }
+
+    /* Process steps */
+    .process-block .steps {
+      display: flex; flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+      position: relative;
+    }
+    .process-block .step {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 16px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      position: relative;
+    }
+    .process-block .step:hover { border-color: var(--brand-600); }
+    .process-block .step.open {
+      border-color: var(--brand-600);
+      box-shadow: 0 0 0 3px var(--brand-50);
+    }
+    .process-block .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 39px;
+      top: 100%;
+      width: 2px; height: 10px;
+      background: var(--ink-100);
+    }
+    .process-block .step.open:not(:last-child)::after {
+      background: var(--brand-600);
+    }
+    .process-block .step-num {
+      grid-row: 1 / span 2;
+      width: 32px; height: 32px;
+      border-radius: 999px;
+      background: var(--brand-900);
+      color: var(--brand-600);
+      display: grid; place-items: center;
+      font-weight: 700;
+      font-size: 14px;
+      align-self: start;
+      margin-top: 2px;
+    }
+    .process-block .step.open .step-num {
+      background: var(--brand-600);
+      color: var(--brand-900);
+    }
+    .process-block .step-title {
+      font-weight: 700;
+      color: var(--brand-900);
+      font-size: 16px;
+      align-self: center;
+    }
+    .process-block .step-body {
+      grid-column: 2;
+      color: var(--ink-700);
+      font-size: 15px;
+      line-height: 1.6;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .25s ease, padding .25s ease;
+    }
+    .process-block .step.open .step-body {
+      max-height: 400px;
+      padding-top: 8px;
+    }
+    .process-block .step-toggle {
+      grid-column: 2;
+      display: flex; justify-content: flex-end;
+      align-self: center;
+      color: var(--ink-500);
+      transition: transform .2s;
+    }
+    .process-block .step.open .step-toggle { transform: rotate(180deg); }
+
+    /* Timeline */
+    .timeline-block .tl {
+      position: relative;
+      margin-top: 14px;
+      padding-left: 28px;
+    }
+    .timeline-block .tl::before {
+      content: "";
+      position: absolute;
+      left: 7px; top: 6px; bottom: 6px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--brand-600) 0%, var(--ink-100) 100%);
+      border-radius: 2px;
+    }
+    .timeline-block .tl-event {
+      position: relative;
+      padding: 4px 0 22px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    .timeline-block .tl-event.in { opacity: 1; transform: translateY(0); }
+    .timeline-block .tl-event::before {
+      content: "";
+      position: absolute;
+      left: -28px;
+      top: 8px;
+      width: 16px; height: 16px;
+      border-radius: 999px;
+      background: var(--brand-600);
+      box-shadow: 0 0 0 4px var(--surface), inset 0 0 0 3px var(--brand-900);
+    }
+    .timeline-block .tl-date {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--brand-700);
+      background: var(--brand-50);
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 6px;
+    }
+    .timeline-block .tl-title {
+      margin: 0 0 4px;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--brand-900);
+    }
+    .timeline-block .tl-body {
+      margin: 0;
+      color: var(--ink-700);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    /* Milestone celebration */
+    .milestone-block {
+      background: linear-gradient(135deg, var(--brand-900) 0%, #1F252E 100%);
+      border-color: var(--brand-900);
+      color: #fff;
+      text-align: center;
+      padding: 40px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .milestone-block .kind {
+      background: var(--brand-600);
+      color: var(--brand-900);
+    }
+    .milestone-block .ms-badge {
+      display: grid; place-items: center;
+      margin: 0 auto 18px;
+      font-size: 76px;
+      line-height: 1;
+      animation: ms-pulse 2.4s ease-in-out infinite;
+      filter: drop-shadow(0 10px 22px rgba(0,232,91,.35));
+    }
+    @keyframes ms-pulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.08); }
+    }
+    .milestone-block .ms-headline {
+      margin: 0 0 8px;
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -.01em;
+    }
+    .milestone-block .ms-sub {
+      margin: 0 auto 22px;
+      max-width: 520px;
+      color: rgba(255,255,255,.72);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    .milestone-block .ms-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--brand-600);
+      color: var(--brand-900);
+      border: 0;
+      padding: 12px 22px;
+      border-radius: 12px;
+      font: inherit; font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(0,232,91,.32);
+      transition: background .15s, transform .05s;
+    }
+    .milestone-block .ms-cta:hover { background: var(--brand-500); }
+    .milestone-block .ms-cta:active { transform: translateY(1px); }
+    .milestone-block .ms-cta:disabled {
+      background: var(--good); color: #fff; cursor: default; box-shadow: none;
+    }
+    .milestone-block .ms-confetti {
+      position: absolute; inset: 0;
+      pointer-events: none;
+    }
+
+    /* AI Tutor */
+    .tutor-block .tutor-head {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 14px;
+    }
+    .tutor-block .tutor-avatar {
+      width: 36px; height: 36px;
+      border-radius: 999px;
+      background: var(--brand-900);
+      color: var(--brand-600);
+      display: grid; place-items: center;
+      font-weight: 800;
+      font-size: 15px;
+      flex: none;
+    }
+    .tutor-block .tutor-meta { flex: 1; }
+    .tutor-block .tutor-meta .tutor-name {
+      font-weight: 700;
+      color: var(--brand-900);
+      font-size: 15px;
+    }
+    .tutor-block .tutor-meta .tutor-status {
+      font-size: 12px;
+      color: var(--ink-500);
+    }
+    .tutor-block .tutor-cog {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 32px; height: 32px;
+      display: grid; place-items: center;
+      cursor: pointer;
+      color: var(--ink-500);
+      transition: border-color .15s, color .15s;
+    }
+    .tutor-block .tutor-cog:hover { border-color: var(--brand-600); color: var(--brand-900); }
+    .tutor-block .tutor-key-form {
+      background: var(--brand-50);
+      border: 1px dashed var(--brand-600);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: var(--ink-700);
+    }
+    .tutor-block .tutor-key-form p { margin: 0 0 10px; }
+    .tutor-block .tutor-key-form input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+      outline: none;
+    }
+    .tutor-block .tutor-key-form input:focus { border-color: var(--brand-600); }
+    .tutor-block .tutor-key-form .key-actions {
+      display: flex; gap: 8px; margin-top: 10px;
+    }
+    .tutor-block .tutor-log {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      max-height: 360px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 12px;
+      margin-bottom: 14px;
+    }
+    .tutor-block .tutor-msg {
+      max-width: 86%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14.5px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .tutor-block .tutor-msg.user {
+      align-self: flex-end;
+      background: var(--brand-900);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .tutor-block .tutor-msg.assistant {
+      align-self: flex-start;
+      background: var(--surface);
+      color: var(--ink-900);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .tutor-block .tutor-msg.system {
+      align-self: center;
+      background: transparent;
+      color: var(--ink-500);
+      font-size: 13px;
+      font-style: italic;
+      max-width: 100%;
+    }
+    .tutor-block .tutor-msg.error {
+      align-self: stretch;
+      background: rgba(224,77,77,.08);
+      border: 1px solid rgba(224,77,77,.28);
+      color: var(--bad);
+      font-size: 13px;
+    }
+    .tutor-block .tutor-typing {
+      align-self: flex-start;
+      display: inline-flex; gap: 4px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .tutor-block .tutor-typing span {
+      width: 6px; height: 6px;
+      border-radius: 999px;
+      background: var(--ink-300);
+      animation: tutor-bounce 1s infinite ease-in-out;
+    }
+    .tutor-block .tutor-typing span:nth-child(2) { animation-delay: .15s; }
+    .tutor-block .tutor-typing span:nth-child(3) { animation-delay: .3s; }
+    @keyframes tutor-bounce {
+      0%, 100% { transform: translateY(0); opacity: .5; }
+      50%      { transform: translateY(-4px); opacity: 1; }
+    }
+    .tutor-block .tutor-input {
+      display: flex; gap: 10px;
+    }
+    .tutor-block .tutor-input textarea {
+      flex: 1;
+      resize: none;
+      min-height: 44px;
+      max-height: 140px;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font: inherit;
+      font-size: 14.5px;
+      line-height: 1.5;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .tutor-block .tutor-input textarea:focus { border-color: var(--brand-600); }
+    .tutor-block .tutor-send {
+      background: var(--brand-600);
+      color: var(--brand-900);
+      border: 0;
+      border-radius: 10px;
+      padding: 0 18px;
+      font: inherit; font-weight: 700;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .tutor-block .tutor-send:hover:not(:disabled) { background: var(--brand-500); }
+    .tutor-block .tutor-send:disabled {
+      background: var(--ink-100); color: var(--ink-500); cursor: not-allowed;
+    }
+    .tutor-block .tutor-suggest {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tutor-block .tutor-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--brand-900);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .tutor-block .tutor-chip:hover { border-color: var(--brand-600); background: var(--brand-50); }
+
+    /* Block library demo page */
+    main.blocks-view { max-width: 920px; }
+    .blocks-view .blocks-hero {
+      padding: 32px 0 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .blocks-view .blocks-hero .eyebrow {
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--brand-700);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .blocks-view .blocks-hero h1 {
+      margin: 0 0 6px;
+      font-size: 32px;
+      letter-spacing: -.01em;
+    }
+    .blocks-view .blocks-hero p {
+      margin: 0 0 18px;
+      color: var(--ink-500);
+      font-size: 16px;
+      max-width: 640px;
+    }
+    .blocks-view .blocks-toc {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 18px;
+    }
+    .blocks-view .blocks-toc a {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--brand-900);
+    }
+    .blocks-view .blocks-toc a:hover {
+      border-color: var(--brand-600);
+      text-decoration: none;
+    }
+    .blocks-view .block-demo {
+      margin: 32px 0;
+      scroll-margin-top: 90px;
+    }
+    .blocks-view .block-demo h2 {
+      margin: 0 0 4px;
+      font-size: 22px;
+      color: var(--brand-900);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .blocks-view .block-demo h2 .demo-num {
+      flex: none;
+      width: 36px; height: 36px;
+      border-radius: 999px;
+      background: var(--brand-900);
+      color: var(--brand-600);
+      font-size: 15px;
+      font-weight: 800;
+      display: grid; place-items: center;
+      letter-spacing: 0;
+    }
+    .blocks-view .block-demo .demo-desc {
+      margin: 0 0 14px;
+      color: var(--ink-500);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    .blocks-view .block-demo .demo-meta {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--brand-700);
+      background: var(--brand-50);
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+    .blocks-view .blocks-toc a .toc-num {
+      display: inline-block;
+      min-width: 18px;
+      padding: 0 4px;
+      margin-right: 6px;
+      border-radius: 999px;
+      background: var(--brand-900);
+      color: var(--brand-600);
+      font-weight: 800;
+      font-size: 11px;
+      text-align: center;
+    }
+
+    /* Course-view overrides for new block types — strip card chrome to match
+       the existing newspaper-style article layout in the lesson view. */
+    .course-main .block.image-block,
+    .course-main .block.carousel-block,
+    .course-main .block.fillblanks-block,
+    .course-main .block.process-block,
+    .course-main .block.timeline-block,
+    .course-main .block.tutor-block {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+      margin: 56px 0;
+    }
+    .course-main .block.milestone-block {
+      margin: 64px 0;
+      border-radius: 20px;
+    }
+
+    /* =========================================================================
+       BLOCK FOCUS INDICATOR
+       Helps learners orient by clearly showing which block they are reading.
+       The block whose centre is closest to the viewport centre gets `.is-focused`.
+       Inactive blocks in the same lesson fade slightly; the active block gets a
+       left-rail accent. Subtle by default — respects prefers-reduced-motion.
+       ========================================================================= */
+    .course-main .block {
+      position: relative;
+      transition: opacity .35s ease;
+    }
+    .course-main .section-wrap.has-focus .block:not(.is-focused) {
+      opacity: 0.42;
+    }
+    .course-main .block.is-focused::before {
+      content: "";
+      position: absolute;
+      left: -28px;
+      top: 8px; bottom: 8px;
+      width: 4px;
+      border-radius: 4px;
+      background: var(--brand-600);
+      box-shadow: 0 0 0 4px rgba(0, 232, 91, 0.16);
+      animation: block-focus-rail .35s cubic-bezier(.22,1,.36,1) both;
+    }
+    @keyframes block-focus-rail {
+      from { opacity: 0; transform: scaleY(.5); }
+      to   { opacity: 1; transform: scaleY(1); }
+    }
+    @media (max-width: 800px) {
+      .course-main .block.is-focused::before { left: -14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .course-main .block { transition: none; }
+      .course-main .block.is-focused::before { animation: none; }
+    }
+
+    /* =========================================================================
+       PATH COMPLETION BADGE — /#badge
+       Certificate of completion shown after a learner finishes the full path.
+       The cert is rendered as inline SVG so it can be downloaded as PNG by
+       drawing the SVG to a canvas. LinkedIn integration uses the official
+       "Add to Profile" prefill URL.
+       ========================================================================= */
+    main.badge-view { max-width: 980px; }
+    .badge-view .badge-hero {
+      padding: 32px 0 24px;
+      text-align: center;
+    }
+    .badge-view .badge-hero .eyebrow {
+      font-size: 12px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--brand-700);
+      font-weight: 700;
+    }
+    .badge-view .badge-hero h1 {
+      margin: 8px 0 6px;
+      font-size: 34px;
+      letter-spacing: -.01em;
+      color: var(--brand-900);
+    }
+    .badge-view .badge-hero p {
+      margin: 0 auto;
+      max-width: 580px;
+      color: var(--ink-500);
+      font-size: 16px;
+      line-height: 1.55;
+    }
+    .badge-view .cert-stage {
+      background: linear-gradient(135deg, var(--brand-50), #FFFFFF 60%);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      margin-top: 28px;
+      box-shadow: 0 18px 48px rgba(10,11,13,.08);
+    }
+    .badge-view .cert-stage svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(10,11,13,.06);
+    }
+    .badge-view .badge-actions {
+      display: flex; flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin: 28px 0 8px;
+    }
+    .badge-view .badge-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 14px 22px;
+      border-radius: 12px;
+      font: inherit; font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      border: 0;
+      transition: background .15s, transform .05s, border-color .15s;
+    }
+    .badge-view .badge-btn.linkedin {
+      background: #0A66C2;
+      color: #FFFFFF;
+      box-shadow: 0 8px 18px rgba(10,102,194,.28);
+    }
+    .badge-view .badge-btn.linkedin:hover { background: #084d92; }
+    .badge-view .badge-btn.primary {
+      background: var(--brand-600);
+      color: var(--brand-900);
+      box-shadow: 0 8px 18px rgba(0,232,91,.28);
+    }
+    .badge-view .badge-btn.primary:hover { background: var(--brand-500); }
+    .badge-view .badge-btn.ghost {
+      background: var(--surface);
+      color: var(--brand-900);
+      border: 1.5px solid var(--border);
+    }
+    .badge-view .badge-btn.ghost:hover { border-color: var(--brand-600); }
+    .badge-view .badge-btn:active { transform: translateY(1px); }
+    .badge-view .badge-meta {
+      margin: 18px auto 0;
+      max-width: 640px;
+      text-align: center;
+      color: var(--ink-500);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .badge-view .badge-meta code {
+      background: var(--surface-2);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color: var(--brand-900);
+    }
+    .badge-view .badge-locked {
+      text-align: center;
+      padding: 56px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-top: 24px;
+    }
+    .badge-view .badge-locked .lock-icon {
+      width: 64px; height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      display: grid; place-items: center;
+      color: var(--ink-500);
+    }
+    .badge-view .badge-locked h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      color: var(--brand-900);
+    }
+    .badge-view .badge-locked p {
+      margin: 0 auto 18px;
+      max-width: 480px;
+      color: var(--ink-500);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    /* LinkedIn certificate card — sits in the main column under the path card.
+       Horizontal layout: cert preview on the left, copy + progress + CTA on
+       the right. Adapts between locked (working toward it) and unlocked. */
+    .cert-card {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 28px;
+      align-items: center;
+      margin: 24px 0 0;
+      padding: 24px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #F3FBF6 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+    .cert-card.cert-card-unlocked {
+      background: linear-gradient(135deg, #EBFDF1 0%, #FFFFFF 60%);
+      border-color: var(--brand-600);
+      box-shadow: 0 14px 36px rgba(0,232,91,.18);
+    }
+    .cert-card .cert-preview {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 6px 18px rgba(10,11,13,.08);
+      transition: filter .25s, opacity .25s;
+    }
+    .cert-card .cert-preview svg.cert-mini {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .cert-card .cert-preview .cert-lock {
+      position: absolute;
+      top: -10px; right: -10px;
+      width: 32px; height: 32px;
+      border-radius: 999px;
+      background: var(--brand-900);
+      color: #fff;
+      display: grid; place-items: center;
+      box-shadow: 0 4px 14px rgba(10,11,13,.18);
+    }
+    .cert-card.cert-card-locked .cert-preview {
+      filter: grayscale(.45);
+      opacity: .92;
+    }
+    .cert-card .cert-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #0A66C2;
+      margin-bottom: 10px;
+    }
+    .cert-card .cert-tag svg { flex: none; }
+    .cert-card h3 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      letter-spacing: -.01em;
+      color: var(--brand-900);
+    }
+    .cert-card p.cert-desc {
+      margin: 0 0 16px;
+      color: var(--ink-500);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 540px;
+    }
+    .cert-card .cert-progress { margin-bottom: 16px; max-width: 360px; }
+    .cert-card .cert-progress .bar {
+      height: 6px;
+      background: var(--ink-100);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .cert-card .cert-progress .bar > span {
+      display: block;
+      height: 100%;
+      background: var(--brand-600);
+      transition: width .4s;
+    }
+    .cert-card .cert-progress .meta {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--ink-500);
+      display: flex; justify-content: space-between; gap: 10px;
+    }
+    .cert-card .cert-progress .meta strong {
+      color: var(--brand-900);
+      font-weight: 700;
+    }
+    .cert-card .cert-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--brand-600);
+      color: var(--brand-900);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      text-decoration: none;
+      transition: background .15s;
+      box-shadow: 0 8px 18px rgba(0,232,91,.28);
+    }
+    .cert-card .cert-cta:hover { background: var(--brand-500); text-decoration: none; }
+    @media (max-width: 720px) {
+      .cert-card {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+    }
+
+    /* Profile dropdown menu — anchored to the avatar in the header. Holds
+       account actions plus "Demo tools" for showcasing the academy. */
+    .me { position: relative; }
+    .user-menu {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      width: 260px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 18px 40px rgba(10,11,13,.16);
+      padding: 6px;
+      z-index: 80;
+      animation: menu-fade-in .15s ease both;
+    }
+    .user-menu[hidden] { display: none; }
+    @keyframes menu-fade-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .user-menu .menu-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .user-menu .menu-header .name {
+      display: block;
+      font-weight: 700;
+      color: var(--brand-900);
+      font-size: 13px;
+      line-height: 1.3;
+    }
+    .user-menu .menu-header .email {
+      display: block;
+      color: var(--ink-500);
+      font-size: 12px;
+      margin-top: 2px;
+      word-break: break-word;
+    }
+    .user-menu .menu-section + .menu-section {
+      border-top: 1px solid var(--border);
+      padding-top: 4px;
+      margin-top: 4px;
+    }
+    .user-menu .menu-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      color: var(--ink-500);
+      font-weight: 700;
+      padding: 8px 12px 4px;
+    }
+    .user-menu .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13.5px;
+      color: var(--brand-900);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .12s;
+    }
+    .user-menu .menu-item:hover {
+      background: var(--brand-50);
+      text-decoration: none;
+    }
+    .user-menu .menu-item.danger { color: var(--bad); }
+    .user-menu .menu-item.danger:hover { background: rgba(224,77,77,.08); }
+    .user-menu .menu-item svg {
+      flex: none;
+      width: 16px; height: 16px;
+      color: var(--ink-500);
+    }
+    .user-menu .menu-item.danger svg { color: var(--bad); }
+
+    /* Badge celebration — fullscreen overlay shown when a new badge is earned.
+       Replaces the older black toast with something that actually feels like a
+       reward: scale-pop card holding the hex, plus a confetti canvas burst. */
+    .badge-celebration {
+      position: fixed; inset: 0;
+      z-index: 200;
+      display: grid; place-items: center;
+      background: rgba(10,11,13,.55);
+      backdrop-filter: blur(4px);
+      animation: bce-fade .25s ease both;
+      cursor: pointer;
+    }
+    .badge-celebration.dismissing { animation: bce-fade-out .25s ease both; }
+    @keyframes bce-fade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes bce-fade-out {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+    .badge-celebration .bce-card {
+      position: relative;
+      background: var(--surface);
+      border-radius: 22px;
+      padding: 36px 40px 30px;
+      text-align: center;
+      max-width: 380px;
+      width: 92vw;
+      box-shadow: 0 24px 60px rgba(10,11,13,.4);
+      animation: bce-pop .55s cubic-bezier(.34,1.56,.64,1) both;
+      cursor: default;
+    }
+    @keyframes bce-pop {
+      0%   { transform: scale(.55); opacity: 0; }
+      60%  { transform: scale(1.06); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .badge-celebration .bce-eyebrow {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--brand-700);
+      background: var(--brand-50);
+      padding: 5px 14px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+    .badge-celebration .bce-hex {
+      width: 140px; height: 140px;
+      margin: 0 auto 18px;
+      filter: drop-shadow(0 14px 26px var(--bce-glow, rgba(10,11,13,.18)));
+      animation: bce-hex-spin 1s cubic-bezier(.22,1,.36,1) both;
+    }
+    @keyframes bce-hex-spin {
+      from { transform: rotate(-12deg) scale(.7); opacity: 0; }
+      to   { transform: rotate(0deg) scale(1); opacity: 1; }
+    }
+    .badge-celebration .bce-title {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--brand-900);
+      letter-spacing: -.01em;
+    }
+    .badge-celebration .bce-desc {
+      margin: 0 0 22px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--ink-500);
+    }
+    .badge-celebration .bce-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--brand-600);
+      color: var(--brand-900);
+      border: 0;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font: inherit; font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,232,91,.32);
+      transition: background .15s, transform .05s;
+    }
+    .badge-celebration .bce-cta:hover { background: var(--brand-500); }
+    .badge-celebration .bce-cta:active { transform: translateY(1px); }
+    .badge-celebration canvas.bce-confetti {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .badge-celebration { animation: none; }
+      .badge-celebration .bce-card,
+      .badge-celebration .bce-hex { animation: none; }
+    }
+
+    /* Sidebar Badges-earned overview — hexagonal achievement badges. */
+    .badges-overview .summary {
+      display: flex; align-items: baseline; gap: 8px;
+      margin-bottom: 6px;
+    }
+    .badges-overview .summary .num {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--brand-900);
+      line-height: 1;
+    }
+    .badges-overview .summary .total {
+      font-size: 14px;
+      color: var(--ink-500);
+    }
+    .badges-overview .streak-line {
+      font-size: 12px;
+      color: var(--ink-500);
+      margin-bottom: 14px;
+    }
+    .badges-overview .streak-line strong {
+      color: var(--brand-900);
+      font-weight: 800;
+    }
+    .badges-overview .b-section-label {
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--ink-500);
+      margin: 16px 0 10px;
+    }
+    .badges-overview .b-section-label:first-child { margin-top: 0; }
+    .badges-overview .grid {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .badges-overview .grid.eng-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+    .badges-overview .grid.mod-grid {
+      grid-template-columns: repeat(5, 1fr);
+    }
+
+    /* Hex badge — pointy-top hexagon SVG. Earned: full gradient + glow.
+       Locked: greyscale + dashed border + dim. */
+    .hex-badge {
+      position: relative;
+      aspect-ratio: 1;
+      cursor: default;
+      transition: transform .2s ease, filter .25s ease;
+    }
+    .hex-badge svg.hex {
+      width: 100%; height: 100%;
+      display: block;
+      overflow: visible;
+    }
+    .hex-badge.earned {
+      filter: drop-shadow(0 4px 10px var(--hex-glow, rgba(10,11,13,.18)));
+    }
+    .hex-badge.earned:hover {
+      transform: translateY(-2px) scale(1.04);
+    }
+    .hex-badge.locked {
+      filter: grayscale(1) brightness(.95);
+      opacity: 0.45;
+    }
+    .hex-badge.just-earned {
+      animation: hex-pop .6s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes hex-pop {
+      0%   { transform: scale(.4); opacity: 0; }
+      60%  { transform: scale(1.18); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    /* Module hexes are smaller and need a tighter label */
+    .hex-badge.mod-hex .mod-code {
+      fill: #FFFFFF;
+      font-family: Inter, sans-serif;
+      font-weight: 800;
+      font-size: 26px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Diamond badge — animated shimmer + twinkling sparkles. The earned glow
+       on the host element gets a cooler ice tint (overrides the default). */
+    .hex-badge.earned svg.hex-diamond {
+      filter: drop-shadow(0 6px 14px rgba(122, 160, 208, .55))
+              drop-shadow(0 0 10px rgba(232, 240, 255, .55));
+    }
+    svg.hex-diamond .diamond-shimmer {
+      transform: translateX(-30px) rotate(15deg);
+      transform-origin: 50px 50px;
+      animation: diamond-sweep 3.6s linear infinite;
+    }
+    @keyframes diamond-sweep {
+      0%   { transform: translateX(-30px) rotate(15deg); }
+      60%  { transform: translateX(130px) rotate(15deg); }
+      100% { transform: translateX(130px) rotate(15deg); } /* dwell before next sweep */
+    }
+    svg.hex-diamond .diamond-sparkle {
+      transform-origin: center;
+      animation: diamond-twinkle 2.2s ease-in-out infinite;
+    }
+    svg.hex-diamond .diamond-sparkle.s1 { animation-duration: 2.0s; animation-delay: 0s; }
+    svg.hex-diamond .diamond-sparkle.s2 { animation-duration: 2.4s; animation-delay: .5s; }
+    svg.hex-diamond .diamond-sparkle.s3 { animation-duration: 1.8s; animation-delay: 1.0s; }
+    svg.hex-diamond .diamond-sparkle.s4 { animation-duration: 2.6s; animation-delay: 1.5s; }
+    @keyframes diamond-twinkle {
+      0%, 100% { opacity: 0.35; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.4); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      svg.hex-diamond .diamond-shimmer,
+      svg.hex-diamond .diamond-sparkle { animation: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hex-badge.just-earned { animation: none; }
+      .hex-badge.earned:hover { transform: none; }
+    }
+
+    /* Capstone (LinkedIn cert) — full-width slot below the grids */
+    .badges-overview .b-cert {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1.5px dashed var(--border);
+      color: var(--ink-500);
+      font-size: 13px;
+      line-height: 1.4;
+      margin-top: 14px;
+    }
+    .badges-overview .b-cert.earned {
+      background: linear-gradient(135deg, #EBFDF1 0%, #FFFFFF 70%);
+      border: 1.5px solid var(--brand-600);
+      color: var(--brand-900);
+    }
+    .badges-overview .b-cert .b-cert-icon {
+      width: 36px; height: 36px;
+      flex: none;
+      border-radius: 999px;
+      background: #0A66C2;
+      color: #fff;
+      display: grid; place-items: center;
+      font-weight: 800;
+    }
+    .badges-overview .b-cert.locked .b-cert-icon {
+      background: var(--surface-2);
+      color: var(--ink-500);
+    }
+    .badges-overview .b-cert .b-cert-text strong {
+      color: var(--brand-900);
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    /* Catalog celebration banner — appears when path is complete. */
+    .path-complete-banner {
+      display: flex; align-items: center; gap: 18px;
+      background: linear-gradient(135deg, var(--brand-900) 0%, #1F252E 100%);
+      color: #fff;
+      border-radius: 18px;
+      padding: 20px 24px;
+      margin: 0 0 28px;
+      box-shadow: 0 18px 48px rgba(10,11,13,.18);
+    }
+    .path-complete-banner .pcb-icon {
+      width: 56px; height: 56px;
+      border-radius: 999px;
+      background: var(--brand-600);
+      color: var(--brand-900);
+      display: grid; place-items: center;
+      flex: none;
+      font-size: 26px;
+    }
+    .path-complete-banner .pcb-text { flex: 1; min-width: 0; }
+    .path-complete-banner .pcb-eyebrow {
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--brand-600);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .path-complete-banner h3 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      letter-spacing: -.01em;
+    }
+    .path-complete-banner p {
+      margin: 0;
+      color: rgba(255,255,255,.72);
+      font-size: 14px;
+    }
+    .path-complete-banner a.pcb-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--brand-600);
+      color: var(--brand-900);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 700;
+      flex: none;
+      box-shadow: 0 6px 16px rgba(0,232,91,.32);
+    }
+    .path-complete-banner a.pcb-cta:hover {
+      background: var(--brand-500);
+      text-decoration: none;
+    }
+    @media (max-width: 640px) {
+      .path-complete-banner { flex-wrap: wrap; }
+      .path-complete-banner a.pcb-cta { width: 100%; justify-content: center; }
+    }
   </style>
 </head>
 <body>
@@ -2020,6 +3388,8 @@
     if (!p.completedLessons.includes(lessonId)) p.completedLessons.push(lessonId);
     p.lastLessonId = lessonId;
     setModuleProgress(moduleId, p);
+    // Record activity and award lesson-related engagement badges.
+    checkEngagementBadges("lesson");
   }
   /* Path-level progress: % of unlocked-module lessons the learner has finished. */
   function getPathProgress() {
@@ -2042,7 +3412,12 @@
     try { return JSON.parse(localStorage.getItem(LS_LEARNER) || "null"); }
     catch { return null; }
   }
-  function setLearner(l) { localStorage.setItem(LS_LEARNER, JSON.stringify(l)); renderMe(); }
+  function setLearner(l) {
+    localStorage.setItem(LS_LEARNER, JSON.stringify(l));
+    renderMe();
+    // Welcome — first-day badge fires the moment a profile exists.
+    checkEngagementBadges("welcome");
+  }
   function switchProfile() {
     // Keep the existing learner pre-filled and let them change any field.
     showIdentityModal(() => route());
@@ -2063,20 +3438,491 @@
     return true;
   }
 
+  /* ---------- Learning-path completion + LinkedIn-shareable certificate ---------- */
+  const LS_PATH_COMPLETED = "academy.path_completed_at";
+  const LS_CERT_ID        = "academy.cert_id";
+
+  function isPathComplete() {
+    const unlocked = MODULES.filter(m => !m.locked && moduleLessonCount(m) > 0);
+    if (!unlocked.length) return false;
+    const done = getCompleted();
+    return unlocked.every(m => !!done[m.id]);
+  }
+
+  function getPathCompletedAt() {
+    return localStorage.getItem(LS_PATH_COMPLETED) || "";
+  }
+
+  function setPathCompletedAtIfMissing() {
+    if (!localStorage.getItem(LS_PATH_COMPLETED)) {
+      localStorage.setItem(LS_PATH_COMPLETED, new Date().toISOString());
+    }
+  }
+
+  /* ---------- Engagement badges + streak tracking ---------- */
+  const LS_BADGES   = "academy.badges_earned";
+  const LS_ACTIVITY = "academy.activity_dates";
+
+  /* Definitions for the seven engagement milestone badges. The colour pair
+     defines the gradient fill on the hexagon; iconPath is a single SVG path
+     drawn in white over the gradient. */
+  const ENGAGEMENT_BADGES = [
+    {
+      id: "first-day", title: "First day at Qargo",
+      desc: "Welcome aboard. You signed up for the academy.",
+      c1: "#FFB347", c2: "#FF7F50",
+      icon: '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>'
+    },
+    {
+      id: "first-lesson", title: "First lesson",
+      desc: "You finished your first lesson.",
+      c1: "#00E85B", c2: "#00C44C",
+      icon: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'
+    },
+    {
+      id: "first-module", title: "First module",
+      desc: "You wrapped up an entire module.",
+      c1: "#00E85B", c2: "#008F39",
+      icon: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>'
+    },
+    {
+      id: "streak-3", title: "3-day streak",
+      desc: "Three days in a row. The habit is starting.",
+      c1: "#D38A52", c2: "#8B4513",
+      icon: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'
+    },
+    {
+      id: "streak-5", title: "5-day streak",
+      desc: "Five days running. Habit forming.",
+      c1: "#E8E8E8", c2: "#8E8E8E",
+      icon: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'
+    },
+    {
+      id: "streak-10", title: "10-day streak",
+      desc: "Ten days. You are on fire.",
+      c1: "#FFD700", c2: "#DAA520",
+      icon: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'
+    },
+    {
+      id: "first-path", title: "Path complete",
+      desc: "You finished a full learning path.",
+      // Ice-blue tones power the locked-state filter and the celebration glow.
+      c1: "#E8F0FF", c2: "#7AA0D0",
+      iconColor: "#1F3A5F",
+      style: "diamond",
+      icon: '<path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/>'
+    },
+  ];
+
+  function getEarnedBadges() {
+    try { return JSON.parse(localStorage.getItem(LS_BADGES) || "{}"); }
+    catch { return {}; }
+  }
+  function hasBadge(id) { return !!getEarnedBadges()[id]; }
+  function grantBadge(id) {
+    const earned = getEarnedBadges();
+    if (earned[id]) return false;
+    earned[id] = new Date().toISOString();
+    localStorage.setItem(LS_BADGES, JSON.stringify(earned));
+    const def = ENGAGEMENT_BADGES.find(b => b.id === id);
+    if (def) queueBadgeCelebration(def);
+    return true;
+  }
+
+  /* Badge celebration overlay — shown on first earn. Confetti burst + scale-pop
+     card. Queued so multiple simultaneous earns don't stack on top of each other.
+     Click anywhere or the CTA to dismiss; auto-dismisses after 5 seconds. */
+  const _bceQueue = [];
+  let _bceShowing = false;
+  function queueBadgeCelebration(def) {
+    _bceQueue.push(def);
+    if (!_bceShowing) showNextBadgeCelebration();
+  }
+  function showNextBadgeCelebration() {
+    if (!_bceQueue.length) { _bceShowing = false; return; }
+    _bceShowing = true;
+    const def = _bceQueue.shift();
+    celebrateBadge(def, () => {
+      _bceShowing = false;
+      // Slight delay between celebrations so they don't feel jammed.
+      setTimeout(showNextBadgeCelebration, 200);
+    });
+  }
+  function celebrateBadge(def, onClosed) {
+    const overlay = document.createElement("div");
+    overlay.className = "badge-celebration";
+    overlay.style.setProperty("--bce-glow", `${def.c2}66`);
+    overlay.innerHTML = `
+      <canvas class="bce-confetti" aria-hidden="true"></canvas>
+      <div class="bce-card" role="alertdialog" aria-live="assertive">
+        <div class="bce-eyebrow">Badge earned</div>
+        <div class="bce-hex">${buildHexBadgeSVG(def)}</div>
+        <h3 class="bce-title">${escape(def.title)}</h3>
+        <p class="bce-desc">${escape(def.desc)}</p>
+        <button type="button" class="bce-cta">Nice</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Confetti — full-viewport canvas, particles burst from the centre.
+    const canvas = overlay.querySelector(".bce-confetti");
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    function fitCanvas() {
+      canvas.width  = window.innerWidth  * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width  = window.innerWidth  + "px";
+      canvas.style.height = window.innerHeight + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    fitCanvas();
+    window.addEventListener("resize", fitCanvas);
+
+    const palette = ["#00E85B", "#00C44C", "#FFD700", "#FF7F50", "#FFB347", "#FFFFFF", "#0A66C2", def.c1, def.c2];
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2 - 20;
+    const particles = Array.from({ length: 160 }, () => ({
+      x: cx + (Math.random() - 0.5) * 120,
+      y: cy + (Math.random() - 0.5) * 40,
+      vx: (Math.random() - 0.5) * 16,
+      vy: -Math.random() * 16 - 4,
+      g: 0.32 + Math.random() * 0.16,
+      size: 5 + Math.random() * 7,
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.45,
+      color: palette[Math.floor(Math.random() * palette.length)],
+      life: 0,
+    }));
+    let frames = 0;
+    let rafId = 0;
+    function tick() {
+      frames++;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      let alive = 0;
+      particles.forEach(p => {
+        p.vy += p.g;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        p.life++;
+        if (p.y < window.innerHeight + 40 && p.life < 260) alive++;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.55);
+        ctx.restore();
+      });
+      if (alive > 0 && frames < 320) rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
+
+    let dismissed = false;
+    function dismiss() {
+      if (dismissed) return;
+      dismissed = true;
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", fitCanvas);
+      overlay.classList.add("dismissing");
+      setTimeout(() => {
+        overlay.remove();
+        if (typeof onClosed === "function") onClosed();
+      }, 260);
+    }
+    overlay.querySelector(".bce-cta").addEventListener("click", e => { e.stopPropagation(); dismiss(); });
+    overlay.addEventListener("click", dismiss);
+    document.addEventListener("keydown", function escDismiss(e) {
+      if (e.key === "Escape") {
+        dismiss();
+        document.removeEventListener("keydown", escDismiss);
+      }
+    });
+    setTimeout(dismiss, 5000);
+  }
+
+  /* Activity-date tracking — drives streak badges. We only store unique
+     YYYY-MM-DD strings; a streak is the longest run of consecutive days
+     ending today (or yesterday — a learner has until tomorrow's midnight
+     to extend their streak). */
+  function todayStamp() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function getActivityDates() {
+    try { return JSON.parse(localStorage.getItem(LS_ACTIVITY) || "[]"); }
+    catch { return []; }
+  }
+  function logActivityToday() {
+    const dates = getActivityDates();
+    const t = todayStamp();
+    if (!dates.includes(t)) {
+      dates.push(t);
+      localStorage.setItem(LS_ACTIVITY, JSON.stringify(dates));
+    }
+  }
+  function getCurrentStreak() {
+    const dates = [...new Set(getActivityDates())].sort().reverse();
+    if (!dates.length) return 0;
+    const today = todayStamp();
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yesterday = y.getFullYear() + "-" + String(y.getMonth()+1).padStart(2,"0") + "-" + String(y.getDate()).padStart(2,"0");
+    if (dates[0] !== today && dates[0] !== yesterday) return 0;
+    let streak = 1;
+    let cur = new Date(dates[0] + "T00:00:00");
+    for (let i = 1; i < dates.length; i++) {
+      const prev = new Date(dates[i] + "T00:00:00");
+      const diffDays = Math.round((cur - prev) / 86400000);
+      if (diffDays === 1) { streak++; cur = prev; }
+      else if (diffDays === 0) { /* dupe — skip */ }
+      else break;
+    }
+    return streak;
+  }
+
+  /* Award all badges the learner has just qualified for. Called from the
+     places that move state forward — profile creation, lesson done,
+     module done, path done. Idempotent — already-earned badges are no-ops. */
+  function checkEngagementBadges(reason) {
+    if (!getLearner()) return;
+    grantBadge("first-day");
+    if (reason === "lesson") {
+      logActivityToday();
+      grantBadge("first-lesson");
+      const s = getCurrentStreak();
+      if (s >= 3)  grantBadge("streak-3");
+      if (s >= 5)  grantBadge("streak-5");
+      if (s >= 10) grantBadge("streak-10");
+    }
+    if (reason === "module") {
+      grantBadge("first-module");
+    }
+    if (reason === "path") {
+      grantBadge("first-path");
+    }
+  }
+
+  /* Stable cert ID per learner+path. Same learner gets the same ID across refreshes. */
+  function getCertId() {
+    let id = localStorage.getItem(LS_CERT_ID);
+    if (id) return id;
+    const learner = getLearner() || {};
+    const seed = (learner.email || learner.name || "anon") + "|" + (LEARNING_PATH.title || "path");
+    let h = 5381;
+    for (let i = 0; i < seed.length; i++) h = ((h * 33) ^ seed.charCodeAt(i)) >>> 0;
+    const block = h.toString(36).toUpperCase().padStart(6, "0").slice(0, 6);
+    const completedAt = getPathCompletedAt();
+    const year = (completedAt ? new Date(completedAt) : new Date()).getFullYear();
+    id = `QA-${year}-${block}`;
+    localStorage.setItem(LS_CERT_ID, id);
+    return id;
+  }
+
   function renderMe() {
     const me = document.getElementById("me");
     const l = getLearner();
     if (!l) { me.innerHTML = ""; return; }
     const initials = l.name.split(/\s+/).filter(Boolean).slice(0,2).map(p => p[0].toUpperCase()).join("");
+    const pathDone = isPathComplete();
     me.innerHTML = `
       <div class="who">
         <span class="name">${escape(l.name)}</span>
         <span class="role">${escape(roleLabel(l.role))}</span>
       </div>
-      <button class="avatar" id="switch-me" title="Switch profile" type="button">${escape(initials || "·")}</button>
+      <button class="avatar" id="user-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" title="Open menu">${escape(initials || "·")}</button>
+      <div class="user-menu" id="user-menu" role="menu" hidden>
+        <div class="menu-header">
+          <span class="name">${escape(l.name)}</span>
+          ${l.email ? `<span class="email">${escape(l.email)}</span>` : ""}
+        </div>
+
+        <div class="menu-section">
+          <button type="button" class="menu-item" data-act="switch-profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Switch profile
+          </button>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">Demo tools</div>
+          <button type="button" class="menu-item" data-act="finish-path">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 5c0-1.66 4-3 9-3s9 1.34 9 3"/></svg>
+            Finish learning path
+          </button>
+          <button type="button" class="menu-item" data-act="mid-path">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+            Set mid-path state
+          </button>
+          <button type="button" class="menu-item" data-act="earn-all-badges">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+            Earn all badges
+          </button>
+          <button type="button" class="menu-item" data-act="set-streak">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+            Set 10-day streak
+          </button>
+          <button type="button" class="menu-item" data-act="preview-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
+            Preview badge celebration
+          </button>
+          <button type="button" class="menu-item danger" data-act="reset">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
+            Reset all progress
+          </button>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">Quick links</div>
+          ${pathDone ? `
+            <a class="menu-item" href="#/badge" data-act="close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              View certificate
+            </a>` : ""}
+          <a class="menu-item" href="#/blocks" data-act="close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Open block library
+          </a>
+        </div>
+      </div>
     `;
-    const sw = document.getElementById("switch-me");
-    if (sw) sw.addEventListener("click", switchProfile);
+
+    const btn  = document.getElementById("user-menu-btn");
+    const menu = document.getElementById("user-menu");
+    if (!btn || !menu) return;
+
+    function openMenu() {
+      menu.hidden = false;
+      btn.setAttribute("aria-expanded", "true");
+      setTimeout(() => document.addEventListener("click", outsideListener), 0);
+      document.addEventListener("keydown", escListener);
+    }
+    function closeMenu() {
+      menu.hidden = true;
+      btn.setAttribute("aria-expanded", "false");
+      document.removeEventListener("click", outsideListener);
+      document.removeEventListener("keydown", escListener);
+    }
+    function outsideListener(e) {
+      if (!menu.contains(e.target) && e.target !== btn) closeMenu();
+    }
+    function escListener(e) { if (e.key === "Escape") closeMenu(); }
+
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      menu.hidden ? openMenu() : closeMenu();
+    });
+
+    menu.querySelectorAll("[data-act]").forEach(item => {
+      item.addEventListener("click", e => {
+        const act = item.dataset.act;
+        // Anchor links keep their navigation but still close the menu.
+        if (act === "close") { closeMenu(); return; }
+        e.preventDefault();
+        closeMenu();
+        handleDemoAction(act);
+      });
+    });
+  }
+
+  /* Demo actions — invoked from the profile dropdown. All operate on the
+     localStorage keys documented in the storage layer; nothing is sent to a
+     server. After mutating state we either call route() to re-render the
+     current view or rely on the next render to pick up changes. */
+  function handleDemoAction(act) {
+    switch (act) {
+      case "switch-profile":     switchProfile(); break;
+      case "reset":              demoResetProgress(); break;
+      case "earn-all-badges":    demoEarnAllBadges(); break;
+      case "finish-path":        demoFinishPath(); break;
+      case "set-streak":         demoSet10DayStreak(); break;
+      case "mid-path":           demoMidPathState(); break;
+      case "preview-badge":      demoPreviewBadge(); break;
+    }
+  }
+
+  function demoResetProgress() {
+    if (!confirm("This clears all academy progress on this browser: completions, badges, streaks, certificate, and saved API key. Continue?")) return;
+    [LS_COMPLETED, LS_PROGRESS, LS_BADGES, LS_ACTIVITY, LS_PATH_COMPLETED, LS_CERT_ID, LS_TUTOR_KEY].forEach(k => localStorage.removeItem(k));
+    toast("Progress reset");
+    route();
+  }
+
+  function demoEarnAllBadges() {
+    // Granting a badge auto-queues the celebration; the queue plays them
+    // back-to-back. Re-render the sidebar after the last one so the grid
+    // reflects the new state.
+    ENGAGEMENT_BADGES.forEach(b => grantBadge(b.id));
+    setTimeout(route, 600);
+  }
+
+  function demoFinishPath() {
+    // Mark every unlocked module's lessons as completed.
+    const all = getCompleted();
+    MODULES.forEach(m => {
+      if (m.locked) return;
+      const lessons = lessonsOf(m);
+      if (!lessons.length) return;
+      const progress = {
+        lastLessonId: lessons[lessons.length - 1].id,
+        completedLessons: lessons.map(l => l.id),
+      };
+      setModuleProgress(m.id, progress);
+      all[m.id] = new Date().toISOString();
+    });
+    localStorage.setItem(LS_COMPLETED, JSON.stringify(all));
+    setPathCompletedAtIfMissing();
+    getCertId();
+    logActivityToday();
+    checkEngagementBadges("welcome");
+    checkEngagementBadges("lesson");
+    checkEngagementBadges("module");
+    checkEngagementBadges("path");
+    setTimeout(route, 200);
+  }
+
+  function demoMidPathState() {
+    // Complete the first three unlocked modules — handy "in flight" demo state.
+    const all = getCompleted();
+    const unlocked = MODULES.filter(m => !m.locked);
+    unlocked.slice(0, 3).forEach(m => {
+      const lessons = lessonsOf(m);
+      if (!lessons.length) return;
+      const progress = {
+        lastLessonId: lessons[lessons.length - 1].id,
+        completedLessons: lessons.map(l => l.id),
+      };
+      setModuleProgress(m.id, progress);
+      all[m.id] = new Date().toISOString();
+    });
+    localStorage.setItem(LS_COMPLETED, JSON.stringify(all));
+    logActivityToday();
+    checkEngagementBadges("welcome");
+    checkEngagementBadges("lesson");
+    checkEngagementBadges("module");
+    toast("Mid-path state set");
+    setTimeout(route, 200);
+  }
+
+  function demoSet10DayStreak() {
+    // Synthesise ten consecutive activity dates ending today.
+    const dates = [];
+    const t = new Date();
+    for (let i = 0; i < 10; i++) {
+      const d = new Date(t);
+      d.setDate(t.getDate() - i);
+      dates.push(d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"));
+    }
+    localStorage.setItem(LS_ACTIVITY, JSON.stringify(dates));
+    grantBadge("streak-3");
+    grantBadge("streak-5");
+    grantBadge("streak-10");
+    setTimeout(route, 200);
+  }
+
+  function demoPreviewBadge() {
+    // Show a celebration without granting — useful for showing the design
+    // without permanently unlocking anything.
+    const def = ENGAGEMENT_BADGES[Math.floor(Math.random() * ENGAGEMENT_BADGES.length)];
+    queueBadgeCelebration(def);
   }
 
   function showIdentityModal(onDone) {
@@ -2157,6 +4003,15 @@
     if (!learner) return;
     if (!markCompleted(course.id)) return;     // already reported on this browser
     toast("Module completed");
+    // Module-level engagement badges (e.g. first-module).
+    checkEngagementBadges("module");
+    // If this completion finishes the whole learning path, stamp the date and
+    // mint the cert ID so the badge page is ready when the learner navigates there.
+    if (isPathComplete()) {
+      setPathCompletedAtIfMissing();
+      getCertId();
+      checkEngagementBadges("path");
+    }
     if (!REPORTING_ENDPOINT) return;           // offline / not configured
     try {
       await fetch(REPORTING_ENDPOINT, {
@@ -2187,6 +4042,10 @@
       const course = COURSES.find(c => c.id === id);
       if (course) renderCourse(course);
       else renderNotFound();
+    } else if (hash.startsWith("#/blocks")) {
+      renderBlocksDemo();
+    } else if (hash.startsWith("#/badge")) {
+      renderBadge();
     } else {
       renderCatalog();
     }
@@ -2197,6 +4056,7 @@
   function renderCatalog() {
     crumbs.textContent = "";
     app.classList.remove("course-view");
+    app.classList.remove("blocks-view");
     app.classList.add("home-view");
     document.body.classList.remove("in-course");
     const learner = getLearner();
@@ -2241,6 +4101,8 @@
 
     const pathCtaLabel = pathStarted ? "Continue learning" : "Start learning path";
 
+    const pathComplete = isPathComplete();
+
     app.innerHTML = `
       <section class="home-hero">
         <div class="home-hero-inner">
@@ -2257,6 +4119,20 @@
         </div>
       </section>
       <div class="home-content">
+      ${pathComplete ? `
+        <div class="path-complete-banner">
+          <div class="pcb-icon" aria-hidden="true">🏆</div>
+          <div class="pcb-text">
+            <div class="pcb-eyebrow">Learning path complete</div>
+            <h3>You've finished ${escape(LEARNING_PATH.title)}.</h3>
+            <p>Your shareable certificate is ready. Add it to your LinkedIn profile or download a PNG.</p>
+          </div>
+          <a class="pcb-cta" href="#/badge">
+            View your certificate
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+      ` : ""}
       ${role ? `
         <div class="section-header home-section-header">
           <div>
@@ -2308,6 +4184,62 @@
                 </a>
               </div>
             </article>
+
+            <article class="cert-card ${pathComplete ? "cert-card-unlocked" : "cert-card-locked"}">
+              <div class="cert-preview">
+                <svg class="cert-mini" viewBox="0 0 240 150" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="cm-bg" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%"  stop-color="#FFFFFF"/>
+                      <stop offset="100%" stop-color="#F3FBF6"/>
+                    </linearGradient>
+                  </defs>
+                  <rect x="2" y="2" width="236" height="146" rx="10" fill="url(#cm-bg)" stroke="#17181B" stroke-width="1.5"/>
+                  <rect x="10" y="10" width="220" height="130" rx="6" fill="none" stroke="#00E85B" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>
+                  <rect x="22" y="22" width="3" height="106" fill="#00E85B" rx="1.5"/>
+                  <rect x="36" y="26" width="20" height="20" rx="4" fill="#17181B"/>
+                  <text x="46" y="40" text-anchor="middle" fill="#00E85B" font-family="Inter, sans-serif" font-size="13" font-weight="800">Q</text>
+                  <text x="62" y="34" fill="#17181B" font-family="Inter, sans-serif" font-size="7" font-weight="700" letter-spacing="2">QARGO</text>
+                  <text x="62" y="44" fill="#6B7076" font-family="Inter, sans-serif" font-size="6" font-weight="500" letter-spacing="2">ACADEMY</text>
+                  <text x="120" y="74" text-anchor="middle" fill="#00C44C" font-family="Inter, sans-serif" font-size="7" font-weight="700" letter-spacing="2">CERTIFICATE OF COMPLETION</text>
+                  <line x1="100" y1="80" x2="140" y2="80" stroke="#00E85B" stroke-width="1.5" stroke-linecap="round"/>
+                  <text x="120" y="100" text-anchor="middle" fill="#17181B" font-family="Inter, sans-serif" font-size="11" font-weight="800">${escape((learner?.name || "Your name").slice(0, 28))}</text>
+                  <text x="120" y="116" text-anchor="middle" fill="#3A3D44" font-family="Inter, sans-serif" font-size="7">${escape(LEARNING_PATH.title.length > 38 ? LEARNING_PATH.title.slice(0,36) + "…" : LEARNING_PATH.title)}</text>
+                  <circle cx="216" cy="128" r="12" fill="#0A66C2"/>
+                  <text x="216" y="132" text-anchor="middle" fill="#FFFFFF" font-family="Inter, sans-serif" font-size="9" font-weight="800">in</text>
+                </svg>
+                ${pathComplete ? "" : `
+                  <div class="cert-lock" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </div>
+                `}
+              </div>
+              <div class="cert-body">
+                <div class="cert-tag" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg>
+                  Shareable on LinkedIn
+                </div>
+                <h3>${pathComplete ? "Your certificate is ready" : "Earn your LinkedIn certificate"}</h3>
+                <p class="cert-desc">${pathComplete
+                    ? "Add it to your LinkedIn profile in two clicks, or download a PNG for your records."
+                    : `Finish all ${MODULES.length} modules in <strong>${escape(LEARNING_PATH.title)}</strong> and a personalised, shareable certificate appears here.`}</p>
+                ${pathComplete ? `
+                  <a class="cert-cta" href="#/badge">
+                    View certificate
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  </a>
+                ` : `
+                  <div class="cert-progress">
+                    <div class="bar"><span style="width:${pathPct}%"></span></div>
+                    <div class="meta"><strong>${pathProgress.completedModules} of ${MODULES.length}</strong> modules<span>${pathPct}%</span></div>
+                  </div>
+                  <a class="cert-cta" href="${nextModule ? `#/course/${nextModule.id}` : "#/"}">
+                    ${pathProgress.started ? "Continue learning" : "Start the path"}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  </a>
+                `}
+              </div>
+            </article>
           ` : ""}
 
           <div class="section-header" style="margin-top:28px">
@@ -2348,6 +4280,73 @@
                   <div class="label">Learning time</div>
                 </li>
               </ul>
+            </div>
+          </section>
+
+          <section class="side-block badges-overview" data-collapsed="false">
+            <button type="button" class="side-block-head" aria-expanded="true" data-toggle="collapse">
+              <h3 class="side-title">Badges earned</h3>
+              <svg class="side-block-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="side-block-body">
+              ${(() => {
+                const earnedBadges = getEarnedBadges();
+                const totalEng = ENGAGEMENT_BADGES.length;
+                const earnedEng = ENGAGEMENT_BADGES.filter(b => earnedBadges[b.id]).length;
+                const totalAll  = totalEng + 1; // +1 for the LinkedIn cert capstone
+                const earnedAll = earnedEng + (pathComplete ? 1 : 0);
+                const streak    = getCurrentStreak();
+                const streakLine = streak > 0
+                  ? `<div class="streak-line"><strong>${streak}-day</strong> streak — keep it up.</div>`
+                  : `<div class="streak-line">No active streak yet. Finish a lesson today to start one.</div>`;
+
+                const engHexes = ENGAGEMENT_BADGES.map(b => {
+                  const earned = !!earnedBadges[b.id];
+                  const cls = earned ? "earned" : "locked";
+                  const glow = earned ? `--hex-glow: ${b.c2}66;` : "";
+                  return `
+                    <div class="hex-badge ${cls}" style="${glow}" title="${escape(b.title)}${earned ? " — earned" : ""}\n${escape(b.desc)}">
+                      ${buildHexBadgeSVG(b)}
+                    </div>`;
+                }).join("");
+
+                return `
+                  <div class="summary">
+                    <span class="num">${earnedAll}</span>
+                    <span class="total">of ${totalAll} earned</span>
+                  </div>
+                  ${streakLine}
+
+                  <div class="b-section-label">Milestones</div>
+                  <div class="grid eng-grid">${engHexes}</div>
+
+                  <div class="b-cert ${pathComplete ? "earned" : "locked"}" title="${pathComplete ? "Certificate earned" : "Complete the path to unlock"}">
+                    <span class="b-cert-icon">${pathComplete
+                      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg>`
+                      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`}</span>
+                    <div class="b-cert-text">
+                      <strong>LinkedIn certificate</strong>
+                      ${pathComplete
+                        ? `<a href="#/badge" style="color: var(--brand-700); font-weight: 600;">View &rarr;</a>`
+                        : `Awarded for full-path completion`}
+                    </div>
+                  </div>
+                `;
+              })()}
+            </div>
+          </section>
+
+          <section class="side-block" data-collapsed="false">
+            <button type="button" class="side-block-head" aria-expanded="true" data-toggle="collapse">
+              <h3 class="side-title">For authors</h3>
+              <svg class="side-block-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="side-block-body">
+              <p class="side-sub">Browse every interactive block the platform supports, with live examples.</p>
+              <a class="btn btn-primary" href="#/blocks" style="display:inline-flex;align-items:center;gap:8px;">
+                Open block library
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
             </div>
           </section>
 
@@ -2478,6 +4477,7 @@
     crumbs.textContent = "";
     app.classList.add("course-view");
     app.classList.remove("home-view");
+    app.classList.remove("blocks-view");
     document.body.classList.add("in-course");
 
     const lessons = lessonsOf(course);
@@ -2620,28 +4620,45 @@
     sidebarBackdrop.addEventListener("click", closeDrawer);
     sidebarCloseBtn.addEventListener("click", closeDrawer);
 
-    // "Start module" hero CTA → smooth-scroll to the first lesson.
-    const heroStartBtn = document.getElementById("hero-start-btn");
-    if (heroStartBtn) {
-      heroStartBtn.addEventListener("click", () => {
-        const first = document.getElementById("section-0");
-        if (first) first.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
-
     // Progressive reveal — only lessons up to `revealedIdx` are visible. The
     // lesson-transition banner between revealedIdx and revealedIdx+1 is the
     // visible gate; scrolling past it is impossible because nothing follows
     // in the DOM until the learner clicks the button.
+    // For first-time visitors, `revealedIdx` starts at -1 so the hero acts as
+    // a real gate — nothing is scrollable below it until "Start module" is
+    // clicked. Returning learners (any completed lesson on this module) bypass
+    // the gate so they don't have to re-click through.
     const transitionEls = Array.from(document.querySelectorAll(".lesson-transition"));
-    // If the learner previously reached partway through, restore that point so
-    // they aren't re-locked out of lessons they already saw.
-    let revealedIdx = 0;
+    const hasPriorProgress = persisted.completedLessons.length > 0;
+    let revealedIdx = hasPriorProgress ? 0 : -1;
     for (let i = total - 1; i >= 0; i--) {
       if (persisted.completedLessons.includes(lessons[i].id)) {
         revealedIdx = Math.min(i + 1, total - 1);
         break;
       }
+    }
+
+    // "Start module" hero CTA — for first-time visitors, this is the gate that
+    // unlocks lesson 1. For returning learners it's a quick scroll-to-first.
+    const heroStartBtn = document.getElementById("hero-start-btn");
+    if (heroStartBtn) {
+      heroStartBtn.addEventListener("click", () => {
+        if (revealedIdx < 0) {
+          revealedIdx = 0;
+          applyReveal();
+          requestAnimationFrame(() => {
+            const target = document.getElementById("section-0");
+            if (!target) return;
+            target.classList.remove("just-revealed");
+            void target.offsetWidth;
+            target.classList.add("just-revealed");
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        } else {
+          const first = document.getElementById("section-0");
+          if (first) first.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
     }
 
     function applyReveal() {
@@ -2742,6 +4759,7 @@
       }
 
       // Render each block and wire its per-block done signal.
+      const lessonCtx = buildLessonContext(lesson);
       blocks.forEach((block, bi) => {
         const el = blockEls[bi];
         if (!el) return;
@@ -2750,7 +4768,7 @@
           blockDone[bi] = true;
           if (blockDone.every(Boolean)) markLessonCompleteUI();
         };
-        renderBlock(el, block, markBlockDone);
+        renderBlock(el, block, markBlockDone, { lesson: lessonCtx, course: { id: course.id, title: course.title } });
       });
     });
 
@@ -2787,6 +4805,47 @@
       });
     }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
     sectionEls.forEach(el => spy.observe(el));
+
+    // Block focus tracker — picks the block whose centre is closest to the
+    // viewport centre and marks it `.is-focused`. The hosting section-wrap is
+    // marked `.has-focus`, which the CSS uses to gently dim other blocks in
+    // the same lesson. Helps learners orient on the block they're reading.
+    const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--header-h")) || 68;
+    let focusRAF = 0;
+    function updateBlockFocus() {
+      focusRAF = 0;
+      const blocks = Array.from(document.querySelectorAll(".course-main .section-wrap:not(.is-locked) .block"));
+      if (!blocks.length) return;
+      const viewCentre = headerH + (window.innerHeight - headerH) / 2;
+      let best = null;
+      let bestDist = Infinity;
+      blocks.forEach(b => {
+        const r = b.getBoundingClientRect();
+        if (r.bottom < headerH || r.top > window.innerHeight) return; // off-screen
+        const centre = (r.top + r.bottom) / 2;
+        const dist = Math.abs(centre - viewCentre);
+        if (dist < bestDist) { best = b; bestDist = dist; }
+      });
+      const prevFocused = document.querySelector(".course-main .block.is-focused");
+      if (prevFocused && prevFocused !== best) prevFocused.classList.remove("is-focused");
+      const prevSection = document.querySelector(".course-main .section-wrap.has-focus");
+      if (prevSection && (!best || best.closest(".section-wrap") !== prevSection)) {
+        prevSection.classList.remove("has-focus");
+      }
+      if (best) {
+        best.classList.add("is-focused");
+        const sec = best.closest(".section-wrap");
+        if (sec) sec.classList.add("has-focus");
+      }
+    }
+    function scheduleFocusUpdate() {
+      if (focusRAF) return;
+      focusRAF = requestAnimationFrame(updateBlockFocus);
+    }
+    window.addEventListener("scroll", scheduleFocusUpdate, { passive: true });
+    window.addEventListener("resize", scheduleFocusUpdate);
+    // Run once after layout settles so the first visible block lights up.
+    setTimeout(updateBlockFocus, 50);
   }
 
   function renderNotFound() {
@@ -2797,9 +4856,564 @@
   }
 
   /* =========================================================================
+     BLOCK LIBRARY — /#blocks demo route
+     A single page showing every block type the platform supports, with a
+     short description of when to use it and a working example. Useful for
+     authors deciding which block to drop into a lesson, and for QA.
+     ========================================================================= */
+  function renderBlocksDemo() {
+    crumbs.innerHTML = `<a href="#/">Catalog</a> &nbsp;/&nbsp; Block library`;
+    app.classList.remove("course-view");
+    app.classList.remove("home-view");
+    app.classList.add("blocks-view");
+    document.body.classList.remove("in-course");
+
+    const demos = [
+      {
+        id: "text", label: "Text",
+        desc: "Standard prose block with optional lead paragraph. Marks done on render — the platform assumes the learner read it.",
+        block: {
+          type: "text",
+          title: "Why short, focused lessons work",
+          lead: "Adults retain more from chunked content than from long blocks of prose.",
+          body: "Each lesson should hold one idea, supported by one or two practical examples. If you need more, split it into a follow-up lesson rather than padding this one."
+        }
+      },
+      {
+        id: "image", label: "Image",
+        desc: "Single image with optional caption. Use for diagrams, screenshots, or photography. Marks done on render.",
+        block: {
+          type: "image",
+          src: "https://www.qargo.com/u/2025/07/Qargo-tms-1-1.avif",
+          alt: "Qargo TMS dashboard",
+          caption: "Figure 1. The Qargo TMS dispatch view, showing live trips on the right and orders on the left."
+        }
+      },
+      {
+        id: "carousel", label: "Carousel",
+        desc: "A set of slides the learner pages through with prev/next or arrow keys. Marks done once every slide has been viewed.",
+        block: {
+          type: "carousel",
+          title: "Three views in dispatch",
+          slides: [
+            { src: "https://images.unsplash.com/photo-1601584115197-04ecc0da31e2?w=1200&q=80", alt: "Truck on highway",
+              caption: "Live trips. Watch active trucks move across the network in real time." },
+            { src: "https://images.unsplash.com/photo-1577415124269-fc1140a69e91?w=1200&q=80", alt: "Warehouse loading bay",
+              caption: "Yard view. See what's at each gate and how long it's been there." },
+            { src: "https://images.unsplash.com/photo-1494412519320-aa613dfb7738?w=1200&q=80", alt: "Dispatch screens",
+              caption: "Planner. Drag and drop unassigned orders onto the right driver." },
+          ]
+        }
+      },
+      {
+        id: "accordion", label: "Accordion",
+        desc: "Collapsible Q&A rows. The learner must expand every row before the block marks done. Good for reference material.",
+        block: {
+          type: "accordion",
+          title: "Common dispatcher questions",
+          items: [
+            { q: "What's the difference between an order and a trip?", a: "An order is what the customer asked for. A trip is one truck's plan to deliver one or more orders." },
+            { q: "When do I close a trip?", a: "Close a trip after the final POD is received and any extra charges have been added. Closing locks rates and triggers invoicing." },
+            { q: "Can I edit a closed trip?", a: "Only with manager rights, and the system will log the change. Most edits should happen before close." },
+          ]
+        }
+      },
+      {
+        id: "summary", label: "Summary",
+        desc: "Highlighted list of key takeaways. Use at the end of a lesson to anchor the main points. Marks done on render.",
+        block: {
+          type: "summary",
+          title: "What to remember",
+          points: [
+            "Orders capture what the customer wants. Trips capture how you'll deliver it.",
+            "One trip can carry many orders, but each order belongs to one trip at a time.",
+            "Closing a trip locks rates — do it after POD and any extras are in.",
+          ]
+        }
+      },
+      {
+        id: "quiz", label: "Quiz",
+        desc: "Single-select multiple-choice question. Locks on submit, reveals the correct answer, and shows feedback. Marks done on submit.",
+        block: {
+          type: "quiz",
+          title: "Quick check",
+          question: "Which object captures what the customer asked for?",
+          options: ["Trip", "Order", "Asset", "Invoice"],
+          correct: 1,
+          explanation: "Orders capture customer demand. Trips capture how you'll deliver."
+        }
+      },
+      {
+        id: "fillblanks", label: "Fill in the blanks",
+        desc: "Paragraph with `{answer}` tokens that become inline inputs. Use Check to grade, Reveal to show answers. Marks done on full correct or after reveal.",
+        block: {
+          type: "fillblanks",
+          title: "Vocabulary check",
+          prompt: "Fill the gaps with the right object names.",
+          text: "In Qargo, customer demand is captured as an {order}, the truck's plan is a {trip}, and the truck itself is an {asset}."
+        }
+      },
+      {
+        id: "match", label: "Match",
+        desc: "Drag terms onto the matching definitions. Marks done when every pair is correct.",
+        block: {
+          type: "match",
+          title: "Match the term to the definition",
+          pairs: [
+            { term: "Order",   definition: "What the customer asked you to move." },
+            { term: "Trip",    definition: "One truck's planned route, carrying one or more orders." },
+            { term: "Asset",   definition: "A vehicle, trailer, or other physical resource." },
+            { term: "Invoice", definition: "The financial document sent to the customer or carrier." },
+          ]
+        }
+      },
+      {
+        id: "flashcards", label: "Flashcards",
+        desc: "Click-to-flip card deck. Marks done once the learner has flipped at least half the deck. Good for vocabulary or quick recall.",
+        block: {
+          type: "flashcards",
+          title: "Status flashcards",
+          cards: [
+            { front: "POD", back: "Proof of Delivery — signed confirmation that the load arrived." },
+            { front: "ETA", back: "Estimated Time of Arrival." },
+            { front: "Tractor", back: "The powered unit at the front of a truck." },
+            { front: "Trailer", back: "The unpowered unit behind the tractor that holds the load." },
+          ]
+        }
+      },
+      {
+        id: "process", label: "Process steps",
+        desc: "Numbered vertical stepper. Click each step to expand. Marks done once every step has been opened.",
+        block: {
+          type: "process",
+          title: "How an order becomes an invoice",
+          steps: [
+            { title: "Capture the order",   body: "Sales or EDI creates the order with pickup, delivery, and rate." },
+            { title: "Plan onto a trip",    body: "Dispatch assigns the order to a driver and trip, sequencing pickups and deliveries." },
+            { title: "Execute and POD",     body: "The driver picks up, delivers, and uploads the POD via the mobile app." },
+            { title: "Close and invoice",   body: "Operations close the trip, billing reviews, and the invoice goes out." },
+          ]
+        }
+      },
+      {
+        id: "timeline", label: "Timeline",
+        desc: "Vertical timeline of dated events. Each event fades in as the learner scrolls. Marks done on render.",
+        block: {
+          type: "timeline",
+          title: "Qargo product milestones",
+          events: [
+            { date: "2021",     title: "First TMS shipped",       body: "First version of the Qargo TMS goes live with launch customers." },
+            { date: "2023",     title: "Mobile app",              body: "Driver-facing mobile app released, with offline POD capture." },
+            { date: "2024",     title: "Smart planning",          body: "Automated trip suggestions and cost-aware dispatch." },
+            { date: "2025",     title: "Open API",                body: "Public REST API and webhooks open up custom integrations." },
+            { date: "Today",    title: "You're learning the basics", body: "Welcome to Qargo Academy." },
+          ]
+        }
+      },
+      {
+        id: "milestone", label: "Milestone celebration",
+        desc: "Congratulatory marker between key sections of a path. Confetti fires once. Marks done when the learner clicks the CTA.",
+        block: {
+          type: "milestone",
+          headline: "Halfway there",
+          message: "You've learned the four core objects and how they connect. Next up: planning trips and handling exceptions.",
+          cta: "Keep going"
+        }
+      },
+      {
+        id: "embed", label: "Embed",
+        desc: "Iframe wrapper for Storylane demos, YouTube, Loom, virtual environments. Marks done when the learner clicks Mark complete.",
+        block: {
+          type: "embed",
+          title: "Try it yourself",
+          kind: "Interactive demo",
+          url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+          ratio: "16/9",
+          caption: "Watch the walkthrough, then mark complete."
+        }
+      },
+      {
+        id: "tutor", label: "AI tutor",
+        desc: "Lesson-aware chat panel powered by OpenAI. Reads your API key from localStorage on first use. Suggested prompts speed up the first question. Marks done on first successful answer.",
+        block: {
+          type: "tutor",
+          title: "AI tutor",
+          subtitle: "Try me — I know about every block on this page.",
+          suggestions: [
+            "What's the difference between an order and a trip?",
+            "Give me a quick exam-style question about dispatch.",
+            "Explain a Qargo POD in simple terms."
+          ]
+        }
+      },
+    ];
+
+    // Synthetic lesson context so the tutor demo feels grounded.
+    const demoCtx = {
+      lesson: { title: "Qargo Academy block library",
+                body: "This page demonstrates every interactive block type in the Academy platform: text, image, carousel, accordion, summary, quiz, fill-in-the-blanks, match, flashcards, process steps, timeline, milestone, embed, and AI tutor. Use these as building blocks when authoring lessons." },
+      course: { id: "blocks-demo", title: "Block library" }
+    };
+
+    app.innerHTML = `
+      <section class="blocks-hero">
+        <div class="eyebrow">Block library</div>
+        <h1>Every block, in one place</h1>
+        <p>Each block below is fully interactive. Use this page to decide which block fits your lesson, to QA new behaviour, or to onboard new content authors. There are ${demos.length} blocks in total.</p>
+        <div class="blocks-toc">
+          ${demos.map((d, i) => `<a href="#/blocks#demo-${d.id}"><span class="toc-num">${i + 1}</span>${escape(d.label)}</a>`).join("")}
+        </div>
+      </section>
+      ${demos.map((d, i) => `
+        <section class="block-demo" id="demo-${d.id}">
+          <span class="demo-meta">Block ${i + 1} of ${demos.length} &middot; ${escape(d.label)}</span>
+          <h2><span class="demo-num">${i + 1}</span> ${escape(d.label)}</h2>
+          <p class="demo-desc">${escape(d.desc)}</p>
+          <article class="block" data-demo="${d.id}"></article>
+        </section>
+      `).join("")}
+      <p style="margin: 56px 0 0; color: var(--ink-500); font-size: 14px;">
+        <a href="#/">&larr; Back to catalog</a>
+      </p>
+    `;
+
+    // Render each demo block. Per-demo "done" is harmless — these aren't tracked.
+    demos.forEach(d => {
+      const el = app.querySelector(`.block[data-demo="${d.id}"]`);
+      if (!el) return;
+      renderBlock(el, d.block, () => {}, demoCtx);
+    });
+
+    // Honour TOC hash anchors after content renders.
+    requestAnimationFrame(() => {
+      const sub = (location.hash.split("#")[2] || "").trim();
+      if (sub) {
+        const t = document.getElementById(sub);
+        if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  /* =========================================================================
+     PATH COMPLETION BADGE — /#badge
+     Renders a certificate of completion as inline SVG (so it scales crisply
+     and can be downloaded as PNG). Provides a LinkedIn "Add to Profile" link
+     using the official prefill URL, plus PNG download and copy-link.
+     ========================================================================= */
+
+  /* Render a single hexagonal achievement badge as inline SVG. The gradient
+     IDs are uniqued per-badge so multiple hexes coexist on the same page.
+     `style: "diamond"` switches to a multi-faceted, shimmering diamond render. */
+  function buildHexBadgeSVG({ id, c1, c2, icon, label, style, iconColor }, opts = {}) {
+    const gid = `hex-grad-${id}`;
+    const hid = `hex-high-${id}`;
+    const sid = `hex-shimmer-${id}`;
+    const cid = `hex-clip-${id}`;
+    // Pointy-top hexagon path with corners at viewBox 100x100.
+    const hex = "M50 4 L91 27 L91 73 L50 96 L9 73 L9 27 Z";
+    const icColor = iconColor || "#FFFFFF";
+    const labelMarkup = label
+      ? `<text x="50" y="60" text-anchor="middle" class="mod-code">${label}</text>`
+      : "";
+    const iconMarkup = icon && !label
+      ? `<g transform="translate(28,28) scale(1.84)" stroke="${icColor}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">${icon}</g>`
+      : "";
+
+    if (style === "diamond") {
+      // Multi-faceted diamond: pale ice gradient, white facet lines, bright
+      // top-left facet, subtle shadow facet, animated shimmer sweep,
+      // twinkling sparkles, crisp white border.
+      return `
+<svg class="hex hex-diamond" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="35%"  stop-color="#E8F0FF"/>
+      <stop offset="60%"  stop-color="#B8D0F0"/>
+      <stop offset="100%" stop-color="#7AA0D0"/>
+    </linearGradient>
+    <linearGradient id="${sid}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="45%"  stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="50%"  stop-color="#FFFFFF" stop-opacity="0.85"/>
+      <stop offset="55%"  stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="${cid}"><path d="${hex}"/></clipPath>
+  </defs>
+  <!-- Diamond base -->
+  <path d="${hex}" fill="url(#${gid})"/>
+  <!-- Bright top-left facet -->
+  <path d="M50 4 L9 27 L50 50 Z" fill="#FFFFFF" fill-opacity="0.42"/>
+  <!-- Soft shadow facet bottom-right -->
+  <path d="M91 73 L50 96 L50 50 Z" fill="#3D6A98" fill-opacity="0.18"/>
+  <!-- Faint facet lines (crystalline triangulation) -->
+  <g stroke="#FFFFFF" stroke-width="0.7" stroke-opacity="0.55" fill="none">
+    <path d="M50 4 L50 96"/>
+    <path d="M9 27 L91 73"/>
+    <path d="M91 27 L9 73"/>
+  </g>
+  <!-- Animated shimmer sweep -->
+  <g clip-path="url(#${cid})">
+    <rect class="diamond-shimmer" x="-30" y="-10" width="32" height="120" fill="url(#${sid})"/>
+  </g>
+  <!-- Crisp white border -->
+  <path d="${hex}" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.95"/>
+  <!-- Sparkles -->
+  <g fill="#FFFFFF">
+    <circle class="diamond-sparkle s1" cx="32" cy="22" r="1.2"/>
+    <circle class="diamond-sparkle s2" cx="72" cy="38" r="0.9"/>
+    <circle class="diamond-sparkle s3" cx="28" cy="68" r="0.9"/>
+    <circle class="diamond-sparkle s4" cx="68" cy="78" r="1.1"/>
+  </g>
+  ${iconMarkup}
+  ${labelMarkup}
+</svg>`.trim();
+    }
+
+    return `
+<svg class="hex" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="${c1}"/>
+      <stop offset="100%" stop-color="${c2}"/>
+    </linearGradient>
+    <linearGradient id="${hid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="${hex}" fill="${'url(#'+gid+')'}"/>
+  <path d="${hex}" fill="${'url(#'+hid+')'}"/>
+  <path d="${hex}" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.55"/>
+  ${iconMarkup}
+  ${labelMarkup}
+</svg>`.trim();
+  }
+
+  /* Build the certificate as a self-contained SVG string. Used for both the
+     on-page rendering and the PNG download. Keep all styling inline so the
+     SVG is portable. */
+  function buildCertificateSVG({ name, pathTitle, dateLabel, certId, issuer }) {
+    const W = 1200, H = 760;
+    const safe = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Inter, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F3FBF6"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#00E85B"/>
+      <stop offset="100%" stop-color="#00C44C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Card -->
+  <rect x="0" y="0" width="${W}" height="${H}" fill="url(#bg)"/>
+  <rect x="24" y="24" width="${W-48}" height="${H-48}" rx="20" ry="20" fill="none" stroke="#17181B" stroke-width="2"/>
+  <rect x="40" y="40" width="${W-80}" height="${H-80}" rx="14" ry="14" fill="none" stroke="#00E85B" stroke-width="1.5" stroke-dasharray="2 6" opacity="0.55"/>
+
+  <!-- Top ribbon accent -->
+  <rect x="80" y="40" width="6" height="${H-80}" fill="url(#ribbon)" rx="3" ry="3"/>
+
+  <!-- Brand mark + wordmark -->
+  <g transform="translate(140, 110)">
+    <rect x="0" y="0" width="48" height="48" rx="10" ry="10" fill="#17181B"/>
+    <text x="24" y="34" text-anchor="middle" fill="#00E85B" font-size="28" font-weight="800">Q</text>
+    <text x="64" y="22" fill="#17181B" font-size="14" font-weight="700" letter-spacing="0.18em">QARGO</text>
+    <text x="64" y="42" fill="#6B7076" font-size="12" font-weight="500" letter-spacing="0.18em">ACADEMY</text>
+  </g>
+
+  <!-- Eyebrow -->
+  <text x="${W/2}" y="220" text-anchor="middle" fill="#00C44C" font-size="14" font-weight="700" letter-spacing="0.28em">CERTIFICATE OF COMPLETION</text>
+
+  <!-- Section divider -->
+  <line x1="${W/2-50}" y1="246" x2="${W/2+50}" y2="246" stroke="#00E85B" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Subhead -->
+  <text x="${W/2}" y="298" text-anchor="middle" fill="#6B7076" font-size="18">This is to certify that</text>
+
+  <!-- Recipient name -->
+  <text x="${W/2}" y="380" text-anchor="middle" fill="#17181B" font-size="60" font-weight="800" letter-spacing="-0.01em">${safe(name)}</text>
+
+  <!-- Has completed -->
+  <text x="${W/2}" y="430" text-anchor="middle" fill="#6B7076" font-size="18">has successfully completed the learning path</text>
+
+  <!-- Path title -->
+  <text x="${W/2}" y="500" text-anchor="middle" fill="#17181B" font-size="34" font-weight="700">${safe(pathTitle)}</text>
+
+  <!-- Date + issuer line -->
+  <text x="${W/2}" y="568" text-anchor="middle" fill="#3A3D44" font-size="16">Issued ${safe(dateLabel)} by ${safe(issuer)}</text>
+
+  <!-- Footer: signature line + cert id -->
+  <g transform="translate(140, ${H-130})">
+    <line x1="0" y1="40" x2="220" y2="40" stroke="#17181B" stroke-width="1.5"/>
+    <text x="0" y="62" fill="#6B7076" font-size="12" letter-spacing="0.12em">AUTHORISED BY QARGO ACADEMY</text>
+  </g>
+  <g transform="translate(${W-360}, ${H-130})">
+    <text x="0" y="40" fill="#17181B" font-size="13" font-weight="700" letter-spacing="0.12em">CERTIFICATE ID</text>
+    <text x="0" y="64" fill="#6B7076" font-size="14" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">${safe(certId)}</text>
+  </g>
+</svg>`.trim();
+  }
+
+  function renderBadge() {
+    crumbs.innerHTML = `<a href="#/">Catalog</a> &nbsp;/&nbsp; Certificate`;
+    app.classList.remove("course-view");
+    app.classList.remove("home-view");
+    app.classList.remove("blocks-view");
+    app.classList.add("badge-view");
+    document.body.classList.remove("in-course");
+
+    const learner = getLearner();
+    if (!learner || !learner.name) {
+      app.innerHTML = `
+        <section class="badge-hero">
+          <div class="eyebrow">Certificate</div>
+          <h1>Tell us who you are first</h1>
+          <p>Your certificate is personalised. Add your name on the welcome screen, then come back here.</p>
+        </section>
+        <p style="margin: 32px 0 0; color: var(--ink-500); font-size: 14px;">
+          <a href="#/">&larr; Back to catalog</a>
+        </p>
+      `;
+      return;
+    }
+
+    const complete = isPathComplete();
+    if (!complete) {
+      app.innerHTML = `
+        <section class="badge-hero">
+          <div class="eyebrow">Certificate</div>
+          <h1>Almost there</h1>
+          <p>Finish every module in the learning path to unlock your shareable certificate.</p>
+        </section>
+        <div class="badge-locked">
+          <div class="lock-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h2>Certificate locked</h2>
+          <p>Complete the remaining modules in <strong>${escape(LEARNING_PATH.title)}</strong> and your badge will appear here, ready to share on LinkedIn.</p>
+          <a class="badge-btn primary" href="#/" style="text-decoration:none;">
+            Back to learning path
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+        </div>
+      `;
+      return;
+    }
+
+    // Path is complete — make sure the date + cert ID are stamped, then render.
+    setPathCompletedAtIfMissing();
+    const completedAtIso = getPathCompletedAt() || new Date().toISOString();
+    const completedAt    = new Date(completedAtIso);
+    const dateLabel = completedAt.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+    const issuer    = "Qargo Academy";
+    const pathTitle = LEARNING_PATH.title;
+    const certId    = getCertId();
+    const svg       = buildCertificateSVG({ name: learner.name, pathTitle, dateLabel, certId, issuer });
+
+    // LinkedIn "Add to Profile" prefill URL. Reference:
+    // https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/add-to-profile
+    const certUrl = location.origin + location.pathname + "#/badge";
+    const linkedInUrl = "https://www.linkedin.com/profile/add?" + new URLSearchParams({
+      startTask: "CERTIFICATION_NAME",
+      name: pathTitle,
+      organizationName: "Qargo",
+      issueYear: String(completedAt.getFullYear()),
+      issueMonth: String(completedAt.getMonth() + 1),
+      certUrl,
+      certId,
+    }).toString();
+
+    app.innerHTML = `
+      <section class="badge-hero">
+        <div class="eyebrow">Path completed</div>
+        <h1>Nice work, ${escape(learner.name.split(/\s+/)[0])}.</h1>
+        <p>Here is your shareable certificate for <strong>${escape(pathTitle)}</strong>. Add it to your LinkedIn profile in two clicks, or download a PNG for your records.</p>
+      </section>
+
+      <div class="cert-stage" id="cert-stage">${svg}</div>
+
+      <div class="badge-actions">
+        <a class="badge-btn linkedin" href="${linkedInUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg>
+          Add to LinkedIn profile
+        </a>
+        <button class="badge-btn primary" type="button" id="cert-download">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download as PNG
+        </button>
+        <button class="badge-btn ghost" type="button" id="cert-copy">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy share link
+        </button>
+      </div>
+
+      <p class="badge-meta">
+        Certificate ID <code>${escape(certId)}</code> &nbsp;·&nbsp; Issued ${escape(dateLabel)} by ${escape(issuer)}
+      </p>
+      <p style="text-align:center; margin: 24px 0 0; color: var(--ink-500); font-size: 13px;">
+        <a href="#/">&larr; Back to catalog</a>
+      </p>
+    `;
+
+    // Wire up Download as PNG. Render the SVG to a 2x canvas for a crisp file.
+    document.getElementById("cert-download").addEventListener("click", () => {
+      const stage = document.getElementById("cert-stage");
+      const svgEl = stage.querySelector("svg");
+      if (!svgEl) return;
+      const xml = new XMLSerializer().serializeToString(svgEl);
+      const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = () => {
+        const scale = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width  = 1200 * scale;
+        canvas.height = 760  * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(blob => {
+          if (!blob) return;
+          const dl = URL.createObjectURL(blob);
+          const a  = document.createElement("a");
+          a.href = dl;
+          a.download = `qargo-academy-certificate-${certId}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(dl), 1000);
+          toast("Certificate downloaded");
+        }, "image/png");
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        toast("Download failed — try again");
+      };
+      img.src = url;
+    });
+
+    // Copy share link.
+    document.getElementById("cert-copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(certUrl);
+        toast("Link copied to clipboard");
+      } catch {
+        toast("Copy failed — your browser blocked it");
+      }
+    });
+  }
+
+  /* =========================================================================
      BLOCK RENDERERS
      ========================================================================= */
-  function renderBlock(el, block, markDone) {
+  function renderBlock(el, block, markDone, ctx) {
+    el.classList.add(`block-type-${block.type || "unknown"}`);
     switch (block.type) {
       case "text":       return renderText(el, block, markDone);
       case "accordion":  return renderAccordion(el, block, markDone);
@@ -2809,9 +5423,43 @@
       case "flipcard":   return renderFlashcards(el, block, markDone);
       case "match":      return renderMatch(el, block, markDone);
       case "embed":      return renderEmbed(el, block, markDone);
+      case "image":      return renderImage(el, block, markDone);
+      case "carousel":   return renderCarousel(el, block, markDone);
+      case "fillblanks": return renderFillBlanks(el, block, markDone);
+      case "process":    return renderProcess(el, block, markDone);
+      case "timeline":   return renderTimeline(el, block, markDone);
+      case "milestone":  return renderMilestone(el, block, markDone);
+      case "tutor":      return renderTutor(el, block, markDone, ctx);
       default:
         el.innerHTML = `<span class="kind">unknown</span><p>Unknown block type: ${escape(block.type)}</p>`;
     }
+  }
+
+  /* Lesson context helper — pulls plain-text content from the lesson's
+     text/summary blocks so the AI tutor can ground its answers. Cached on
+     the lesson object so we don't re-stringify on every call. */
+  function buildLessonContext(lesson) {
+    if (!lesson) return { title: "", body: "" };
+    if (lesson._ctx) return lesson._ctx;
+    const parts = [];
+    (lesson.blocks || []).forEach(b => {
+      if (b.type === "text") {
+        if (b.title) parts.push(b.title);
+        if (b.lead)  parts.push(b.lead);
+        if (b.body)  parts.push(b.body);
+      } else if (b.type === "summary") {
+        if (b.title) parts.push(b.title);
+        if (Array.isArray(b.points)) parts.push(b.points.join(". "));
+      } else if (b.type === "accordion") {
+        (b.items || []).forEach(it => parts.push(`${it.q || ""}: ${it.a || ""}`));
+      } else if (b.type === "process") {
+        (b.steps || []).forEach(s => parts.push(`${s.title || ""}: ${s.body || ""}`));
+      } else if (b.type === "timeline") {
+        (b.events || []).forEach(e => parts.push(`${e.date || ""} — ${e.title || ""}: ${e.body || ""}`));
+      }
+    });
+    lesson._ctx = { title: lesson.title || "", body: parts.join("\n\n").slice(0, 4000) };
+    return lesson._ctx;
   }
 
   function renderText(el, block, markDone) {
@@ -3121,6 +5769,566 @@
       });
       fb.hidden = true;
     });
+  }
+
+  /*
+   * Image block — single image with optional caption.
+   *
+   * Config shape:
+   *   { type: "image", src, alt?, caption?, title? }
+   *
+   * Marks done on render (presentation block).
+   */
+  function renderImage(el, block, markDone) {
+    el.classList.add("image-block");
+    const src = String(block.src || "");
+    const alt = escape(block.alt || "");
+    el.innerHTML = `
+      <span class="kind">Image</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      ${src ? `
+        <div class="img-wrap">
+          <img src="${escape(src)}" alt="${alt}" loading="lazy" />
+        </div>
+        ${block.caption ? `<p class="caption">${escape(block.caption)}</p>` : ""}
+      ` : `<p class="caption">Image is missing a src.</p>`}
+    `;
+    markDone();
+  }
+
+  /*
+   * Carousel block — set of slides the learner pages through.
+   *
+   * Config shape:
+   *   {
+   *     type: "carousel",
+   *     title?,
+   *     slides: [{ src, alt?, caption? }, ...]
+   *   }
+   *
+   * Marks done once every slide has been viewed at least once.
+   */
+  function renderCarousel(el, block, markDone) {
+    el.classList.add("carousel-block");
+    const slides = Array.isArray(block.slides) ? block.slides : [];
+    if (!slides.length) {
+      el.innerHTML = `<span class="kind">Carousel</span><p class="caption">Carousel has no slides.</p>`;
+      markDone();
+      return;
+    }
+    el.innerHTML = `
+      <span class="kind">Carousel</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      <div class="car-frame">
+        <div class="car-track">
+          ${slides.map(s => `
+            <div class="car-slide">
+              <img src="${escape(s.src || "")}" alt="${escape(s.alt || "")}" loading="lazy" />
+              ${s.caption ? `<div class="car-cap">${escape(s.caption)}</div>` : ""}
+            </div>
+          `).join("")}
+        </div>
+        <button type="button" class="car-nav prev" aria-label="Previous slide">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <button type="button" class="car-nav next" aria-label="Next slide">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="car-dots">
+        ${slides.map((_, i) => `<button type="button" class="car-dot${i===0?" active":""}" data-idx="${i}" aria-label="Go to slide ${i+1}"></button>`).join("")}
+      </div>
+      <div class="car-progress">Slide 1 of ${slides.length}</div>
+    `;
+    const track = el.querySelector(".car-track");
+    const dots  = Array.from(el.querySelectorAll(".car-dot"));
+    const prev  = el.querySelector(".car-nav.prev");
+    const next  = el.querySelector(".car-nav.next");
+    const progress = el.querySelector(".car-progress");
+    let idx = 0;
+    const seen = new Set([0]);
+    function go(i) {
+      idx = Math.max(0, Math.min(slides.length - 1, i));
+      track.style.transform = `translateX(-${idx * 100}%)`;
+      dots.forEach((d, di) => d.classList.toggle("active", di === idx));
+      prev.disabled = idx === 0;
+      next.disabled = idx === slides.length - 1;
+      progress.textContent = `Slide ${idx + 1} of ${slides.length}`;
+      seen.add(idx);
+      if (seen.size >= slides.length) markDone();
+    }
+    prev.addEventListener("click", () => go(idx - 1));
+    next.addEventListener("click", () => go(idx + 1));
+    dots.forEach(d => d.addEventListener("click", () => go(Number(d.dataset.idx))));
+    el.tabIndex = 0;
+    el.addEventListener("keydown", e => {
+      if (e.key === "ArrowLeft")  { e.preventDefault(); go(idx - 1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); go(idx + 1); }
+    });
+    go(0);
+    if (slides.length === 1) markDone();
+  }
+
+  /*
+   * Fill-in-the-blanks block — paragraph with `{answer}` tokens.
+   *
+   * Config shape:
+   *   {
+   *     type: "fillblanks",
+   *     title?,
+   *     prompt?: "Fill the gaps below.",
+   *     text:    "The four core objects in Qargo are {orders}, {trips}, {invoices}, and {assets}.",
+   *     caseSensitive?: false
+   *   }
+   *
+   * Marks done when every blank is correct, or after the learner reveals answers.
+   */
+  function renderFillBlanks(el, block, markDone) {
+    el.classList.add("fillblanks-block");
+    const raw  = String(block.text || "");
+    const tokens = [];
+    // Split on {answer} tokens, recording answer order.
+    const html = raw.replace(/\{([^}]+)\}/g, (_m, ans) => {
+      const i = tokens.length;
+      tokens.push(ans);
+      return `<input class="blank" data-idx="${i}" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Blank ${i+1}" />`;
+    });
+    el.innerHTML = `
+      <span class="kind">Fill in the blanks</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      ${block.prompt ? `<p class="hint">${escape(block.prompt)}</p>` : ""}
+      <p class="fill-text">${html || escape("(no text provided)")}</p>
+      <div class="fill-actions">
+        <button type="button" class="primary" data-act="check">Check answers</button>
+        <button type="button" class="ghost"   data-act="reveal">Reveal</button>
+        <span class="fill-feedback" hidden></span>
+      </div>
+    `;
+    if (!tokens.length) { markDone(); return; }
+    const inputs = Array.from(el.querySelectorAll("input.blank"));
+    const fb     = el.querySelector(".fill-feedback");
+    const cs     = !!block.caseSensitive;
+    const norm   = s => cs ? String(s).trim() : String(s).trim().toLowerCase();
+
+    function check() {
+      let correct = 0;
+      inputs.forEach((inp, i) => {
+        inp.classList.remove("correct", "wrong");
+        if (norm(inp.value) === norm(tokens[i])) {
+          inp.classList.add("correct"); correct++;
+        } else if (inp.value.trim()) {
+          inp.classList.add("wrong");
+        }
+      });
+      fb.hidden = false;
+      fb.className = "fill-feedback " + (correct === tokens.length ? "good" : "bad");
+      fb.textContent = `${correct} / ${tokens.length} correct.` + (correct === tokens.length ? " Nicely done." : "");
+      if (correct === tokens.length) markDone();
+    }
+    function reveal() {
+      inputs.forEach((inp, i) => {
+        inp.value = tokens[i];
+        inp.classList.remove("wrong");
+        inp.classList.add("correct");
+        inp.disabled = true;
+      });
+      fb.hidden = false;
+      fb.className = "fill-feedback";
+      fb.textContent = "Answers revealed.";
+      markDone();
+    }
+    el.querySelector('[data-act="check"]').addEventListener("click", check);
+    el.querySelector('[data-act="reveal"]').addEventListener("click", reveal);
+    inputs.forEach(inp => {
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); check(); } });
+    });
+  }
+
+  /*
+   * Process steps block — vertical numbered stepper.
+   *
+   * Config shape:
+   *   {
+   *     type: "process",
+   *     title?,
+   *     steps: [{ title, body }, ...]
+   *   }
+   *
+   * Marks done when every step has been opened (same as accordion).
+   */
+  function renderProcess(el, block, markDone) {
+    el.classList.add("process-block");
+    const steps = Array.isArray(block.steps) ? block.steps : [];
+    el.innerHTML = `
+      <span class="kind">Process</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      ${block.intro ? `<p class="hint">${escape(block.intro)}</p>` : ""}
+      <div class="steps">
+        ${steps.map((s, i) => `
+          <div class="step" data-idx="${i}">
+            <span class="step-num">${i + 1}</span>
+            <span class="step-title">${escape(s.title || `Step ${i+1}`)}</span>
+            <span class="step-toggle" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+            <div class="step-body">${escape(s.body || "")}</div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+    const rows = Array.from(el.querySelectorAll(".step"));
+    const opened = new Set();
+    rows.forEach(row => {
+      row.addEventListener("click", () => {
+        const isOpen = row.classList.toggle("open");
+        if (isOpen) {
+          opened.add(row.dataset.idx);
+          if (opened.size >= rows.length) markDone();
+        }
+      });
+    });
+    if (!rows.length) markDone();
+  }
+
+  /*
+   * Timeline block — vertical timeline of events.
+   *
+   * Config shape:
+   *   {
+   *     type: "timeline",
+   *     title?,
+   *     events: [{ date, title, body }, ...]
+   *   }
+   *
+   * Marks done on render. IntersectionObserver fades each event in.
+   */
+  function renderTimeline(el, block, markDone) {
+    el.classList.add("timeline-block");
+    const events = Array.isArray(block.events) ? block.events : [];
+    el.innerHTML = `
+      <span class="kind">Timeline</span>
+      ${block.title ? `<h3>${escape(block.title)}</h3>` : ""}
+      <div class="tl">
+        ${events.map(ev => `
+          <article class="tl-event">
+            ${ev.date  ? `<div class="tl-date">${escape(ev.date)}</div>` : ""}
+            ${ev.title ? `<h4 class="tl-title">${escape(ev.title)}</h4>` : ""}
+            ${ev.body  ? `<p class="tl-body">${escape(ev.body)}</p>` : ""}
+          </article>
+        `).join("")}
+      </div>
+    `;
+    const items = Array.from(el.querySelectorAll(".tl-event"));
+    if (items.length && "IntersectionObserver" in window) {
+      const io = new IntersectionObserver((entries, obs) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add("in");
+            obs.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      items.forEach(i => io.observe(i));
+    } else {
+      items.forEach(i => i.classList.add("in"));
+    }
+    markDone();
+  }
+
+  /*
+   * Milestone celebration block — congratulatory marker between key sections.
+   *
+   * Config shape:
+   *   {
+   *     type: "milestone",
+   *     headline?: "Halfway there",
+   *     message?:  "You've finished the foundations. Time to tackle dispatch.",
+   *     cta?:      "Keep going"
+   *   }
+   *
+   * Confetti burst fires once when the block scrolls into view. Marks done
+   * when the learner clicks the CTA.
+   */
+  function renderMilestone(el, block, markDone) {
+    el.classList.add("milestone-block");
+    el.innerHTML = `
+      <canvas class="ms-confetti"></canvas>
+      <span class="kind">Milestone</span>
+      <div class="ms-badge" aria-hidden="true">👍</div>
+      <h3 class="ms-headline">${escape(block.headline || "Milestone reached")}</h3>
+      <p class="ms-sub">${escape(block.message || "Take a moment to reflect on what you've learned, then keep going.")}</p>
+      <button type="button" class="ms-cta">${escape(block.cta || "Keep going")}</button>
+    `;
+    const cta = el.querySelector(".ms-cta");
+    cta.addEventListener("click", () => {
+      cta.disabled = true;
+      cta.textContent = "Completed";
+      markDone();
+    });
+
+    // Confetti — single burst when the milestone enters the viewport.
+    const canvas = el.querySelector(".ms-confetti");
+    let bursted = false;
+    function burst() {
+      if (bursted) return;
+      bursted = true;
+      const ctx = canvas.getContext("2d");
+      const rect = el.getBoundingClientRect();
+      canvas.width  = rect.width;
+      canvas.height = rect.height;
+      const colors = ["#00E85B", "#00C44C", "#BDF8D0", "#FFFFFF", "#FFC43D"];
+      const particles = Array.from({ length: 90 }, () => ({
+        x: rect.width / 2 + (Math.random() - 0.5) * 80,
+        y: rect.height / 2 + (Math.random() - 0.5) * 30,
+        vx: (Math.random() - 0.5) * 9,
+        vy: -Math.random() * 11 - 3,
+        g: 0.32 + Math.random() * 0.12,
+        size: 4 + Math.random() * 5,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        life: 0,
+      }));
+      let frames = 0;
+      function tick() {
+        frames++;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let alive = 0;
+        particles.forEach(p => {
+          p.vy += p.g;
+          p.x  += p.vx;
+          p.y  += p.vy;
+          p.rot += p.vr;
+          p.life++;
+          if (p.y < canvas.height + 20 && p.life < 220) alive++;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size * 0.6);
+          ctx.restore();
+        });
+        if (alive > 0 && frames < 240) requestAnimationFrame(tick);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      tick();
+    }
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver((entries, obs) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { burst(); obs.unobserve(e.target); }
+        });
+      }, { threshold: 0.4 });
+      io.observe(el);
+    } else {
+      burst();
+    }
+  }
+
+  /* =========================================================================
+     AI TUTOR
+     Lesson-aware chat block. Reads the learner's OpenAI API key from
+     localStorage (LS_TUTOR_KEY). On first use, prompts for the key.
+
+     IMPORTANT: this client-side approach is fine for personal use or a
+     hosting setup behind a proxy that strips the key. For a public/static
+     deploy (e.g. GitHub Pages) where the key would be shared across users,
+     replace `callOpenAI()` with a call to a backend proxy that injects the
+     key server-side. Search this file for `OPENAI_PROXY_URL` to swap.
+     ========================================================================= */
+  const LS_TUTOR_KEY = "academy.openai_key";
+  const OPENAI_PROXY_URL = ""; // set this to a proxy URL to use a shared key safely
+
+  function getTutorKey() { return localStorage.getItem(LS_TUTOR_KEY) || ""; }
+  function setTutorKey(k) {
+    if (k) localStorage.setItem(LS_TUTOR_KEY, k);
+    else localStorage.removeItem(LS_TUTOR_KEY);
+  }
+
+  async function callOpenAI(messages) {
+    const body = JSON.stringify({
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0.4,
+      max_tokens: 600,
+    });
+    if (OPENAI_PROXY_URL) {
+      const r = await fetch(OPENAI_PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      if (!r.ok) throw new Error(`Proxy error ${r.status}`);
+      const data = await r.json();
+      return data.choices?.[0]?.message?.content?.trim() || "";
+    }
+    const key = getTutorKey();
+    if (!key) throw new Error("No API key configured.");
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      body,
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      throw new Error(`OpenAI error ${r.status}: ${txt.slice(0, 200)}`);
+    }
+    const data = await r.json();
+    return data.choices?.[0]?.message?.content?.trim() || "";
+  }
+
+  function renderTutor(el, block, markDone, ctx) {
+    el.classList.add("tutor-block");
+    const lessonTitle = ctx?.lesson?.title || block.contextTitle || "this lesson";
+    const lessonBody  = ctx?.lesson?.body  || block.contextBody  || "";
+    const courseTitle = ctx?.course?.title || "Qargo Academy";
+    const suggestions = Array.isArray(block.suggestions) && block.suggestions.length
+      ? block.suggestions
+      : [
+          "Summarise this lesson in three bullets.",
+          "What's a question I might be asked about this?",
+          "Give me a real-world example.",
+        ];
+
+    el.innerHTML = `
+      <div class="tutor-head">
+        <div class="tutor-avatar" aria-hidden="true">AI</div>
+        <div class="tutor-meta">
+          <div class="tutor-name">${escape(block.title || "Tutor")}</div>
+          <div class="tutor-status">${escape(block.subtitle || `Ask about: ${lessonTitle}`)}</div>
+        </div>
+        <button type="button" class="tutor-cog" aria-label="Tutor settings" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+      <div class="tutor-key-form" hidden>
+        <p><strong>Add your OpenAI API key</strong> to enable the tutor. The key is stored only in this browser. For shared/remote use, route requests through a small backend proxy instead.</p>
+        <input type="password" placeholder="sk-..." autocomplete="off" />
+        <div class="key-actions">
+          <button type="button" class="primary" data-act="save-key">Save</button>
+          <button type="button" class="ghost"   data-act="clear-key">Clear</button>
+        </div>
+      </div>
+      <div class="tutor-suggest">
+        ${suggestions.map(s => `<button type="button" class="tutor-chip">${escape(s)}</button>`).join("")}
+      </div>
+      <div class="tutor-log" aria-live="polite"></div>
+      <div class="tutor-input">
+        <textarea placeholder="Ask anything about this lesson..." rows="1"></textarea>
+        <button type="button" class="tutor-send">Send</button>
+      </div>
+    `;
+
+    const log    = el.querySelector(".tutor-log");
+    const ta     = el.querySelector("textarea");
+    const send   = el.querySelector(".tutor-send");
+    const cog    = el.querySelector(".tutor-cog");
+    const keyForm  = el.querySelector(".tutor-key-form");
+    const keyInput = keyForm.querySelector("input");
+    const chips    = el.querySelectorAll(".tutor-chip");
+
+    const history = [
+      { role: "system", content:
+        `You are a concise, friendly tutor for ${courseTitle}.
+Answer questions grounded in the lesson context below. If a question goes outside the lesson, gently bring it back.
+Keep answers under 120 words unless the learner asks for more.
+
+Lesson title: ${lessonTitle}
+Lesson context:
+${lessonBody || "(no additional context provided)"}`
+      }
+    ];
+
+    function appendMsg(role, text) {
+      const div = document.createElement("div");
+      div.className = `tutor-msg ${role}`;
+      div.textContent = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+    function appendSystem(text) { return appendMsg("system", text); }
+    function appendError(text)  { return appendMsg("error", text); }
+    function showTyping() {
+      const div = document.createElement("div");
+      div.className = "tutor-typing";
+      div.innerHTML = `<span></span><span></span><span></span>`;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+
+    function ensureKey() {
+      if (OPENAI_PROXY_URL) return true;
+      if (getTutorKey()) return true;
+      keyForm.hidden = false;
+      keyInput.focus();
+      return false;
+    }
+
+    cog.addEventListener("click", () => {
+      keyForm.hidden = !keyForm.hidden;
+      if (!keyForm.hidden) {
+        keyInput.value = getTutorKey();
+        keyInput.focus();
+      }
+    });
+    keyForm.querySelector('[data-act="save-key"]').addEventListener("click", () => {
+      const k = keyInput.value.trim();
+      if (!k) return;
+      setTutorKey(k);
+      keyForm.hidden = true;
+      appendSystem("API key saved to this browser.");
+    });
+    keyForm.querySelector('[data-act="clear-key"]').addEventListener("click", () => {
+      setTutorKey("");
+      keyInput.value = "";
+      appendSystem("API key cleared.");
+    });
+
+    async function ask(question) {
+      if (!question) return;
+      if (!ensureKey()) return;
+      appendMsg("user", question);
+      ta.value = "";
+      ta.style.height = "auto";
+      send.disabled = true;
+      const typing = showTyping();
+      history.push({ role: "user", content: question });
+      try {
+        const reply = await callOpenAI(history);
+        typing.remove();
+        appendMsg("assistant", reply || "(empty response)");
+        history.push({ role: "assistant", content: reply });
+        markDone();
+      } catch (err) {
+        typing.remove();
+        appendError(`Tutor error: ${err.message || err}`);
+        history.pop();
+      } finally {
+        send.disabled = false;
+        ta.focus();
+      }
+    }
+
+    chips.forEach(c => c.addEventListener("click", () => ask(c.textContent)));
+    send.addEventListener("click", () => ask(ta.value.trim()));
+    ta.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        ask(ta.value.trim());
+      }
+    });
+    ta.addEventListener("input", () => {
+      ta.style.height = "auto";
+      ta.style.height = Math.min(140, ta.scrollHeight) + "px";
+    });
+
+    if (!OPENAI_PROXY_URL && !getTutorKey()) {
+      appendSystem("Click the cog to add your OpenAI API key, then ask anything about this lesson.");
+    } else {
+      appendSystem(`Hi. I'm primed on "${lessonTitle}". What would you like to dig into?`);
+    }
   }
 
   /* =========================================================================
