@@ -3007,8 +3007,28 @@
      Paste your Cloudflare Worker URL here once deployed (see reporting-worker.js).
      Leave empty while developing locally — completions still track in localStorage
      but nothing is sent to Notion.
+
+     AUDIT-GRADE CAVEAT (TODO, not built yet):
+     Logging is currently client-reported. A learner with DevTools could fire
+     fake session_start / lesson_completed / module_completed / path_completed
+     events, or skip lessons and still appear complete. Fine for an internal
+     engagement view, NOT proof of completion.
+
+     Path to audit-grade later:
+       1. Move identity behind SSO (e.g. Cloudflare Access) so name/email/role
+          come from a verified header, not the in-page identity prompt.
+       2. Have the Worker mint a signed, short-lived session token at login and
+          require it on every event.
+       3. Move completion logic server-side: the Worker decides what counts as
+          done based on submitted answers, not a client "done" flag.
+       4. Persist raw events (append-only) alongside the upserted learner row
+          so any tampering is auditable.
+       5. Tie certificate IDs to a server record and verify via a public
+          /verify/<certId> URL (the existing reporting-worker.js plan covers this).
+     The same caveat is also pinned on the Notion "Qargo University - Project
+     Management Dashboard" page above the Learners Logs database.
      ========================================================================= */
-  const REPORTING_ENDPOINT = ""; // e.g. "https://academy-reporter.<you>.workers.dev"
+  const REPORTING_ENDPOINT = "https://academy-reporter.alvaro-avelar.workers.dev";
 
   /* =========================================================================
      ROLES
@@ -3462,9 +3482,14 @@
   }
 
   function setPathCompletedAtIfMissing() {
+    // Returns true if this call was the first to stamp the completion date
+    // (i.e. the path just transitioned to complete). Used by reportCompletion
+    // to fire the path_completed event exactly once.
     if (!localStorage.getItem(LS_PATH_COMPLETED)) {
       localStorage.setItem(LS_PATH_COMPLETED, new Date().toISOString());
+      return true;
     }
+    return false;
   }
 
   /* ---------- Engagement badges + streak tracking ---------- */
@@ -4036,6 +4061,66 @@
     toast._t = setTimeout(() => t.classList.remove("show"), 2500);
   }
 
+  /* ---------- Worker reporting helpers ----------
+     All Worker calls go through reportEvent(). It is fire-and-forget: a Worker
+     outage or offline state can never block the lesson flow. The Worker upserts
+     into the Notion "Learners Logs" database keyed by email. */
+  function learnerPayload() {
+    const l = getLearner();
+    if (!l) return null;
+    return {
+      name: l.name,
+      email: l.email,
+      company: l.company || "",
+      role: l.role || null,
+      roleLabel: l.role ? roleLabel(l.role) : null,
+    };
+  }
+  async function reportEvent(event, extra = {}) {
+    if (!REPORTING_ENDPOINT) return;           // dev / offline
+    const learner = learnerPayload();
+    if (!learner) return;                      // no identity yet
+    try {
+      await fetch(REPORTING_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event, learner, at: new Date().toISOString(), ...extra }),
+      });
+    } catch (e) { console.warn("reporting failed:", event, e); }
+  }
+  // Fires on every page load regardless of login state. No learner data required.
+  // The Worker stores these as raw page hits in KV (keyed by date).
+  async function reportPageView() {
+    if (!REPORTING_ENDPOINT) return;
+    try {
+      const learner = learnerPayload(); // null for first-time visitors
+      await fetch(REPORTING_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "page_view",
+          at: new Date().toISOString(),
+          referrer: document.referrer || null,
+          ...(learner ? { learner } : {}),
+        }),
+      });
+    } catch (e) { console.warn("reporting failed: page_view", e); }
+  }
+  function reportSessionStart() {
+    return reportEvent("session_start");
+  }
+  function reportLessonComplete(course, lesson) {
+    return reportEvent("lesson_completed", {
+      lesson: { id: lesson.id, title: lesson.title || lesson.id },
+      module: { id: course.id, title: course.title },
+    });
+  }
+  function reportPathComplete() {
+    return reportEvent("path_completed", {
+      path: { id: LEARNING_PATH.id, title: LEARNING_PATH.title },
+    });
+  }
+
   async function reportCompletion(course) {
     const learner = getLearner();
     if (!learner) return;
@@ -4043,28 +4128,19 @@
     toast("Module completed");
     // Module-level engagement badges (e.g. first-module).
     checkEngagementBadges("module");
+    // Send the module event before evaluating path completion so the order in
+    // Notion's "Last milestone" field reads naturally (module then path).
+    reportEvent("module_completed", {
+      module: { id: course.id, title: course.title },
+    });
     // If this completion finishes the whole learning path, stamp the date and
     // mint the cert ID so the badge page is ready when the learner navigates there.
     if (isPathComplete()) {
-      setPathCompletedAtIfMissing();
+      const wasFirstTime = setPathCompletedAtIfMissing();
       getCertId();
       checkEngagementBadges("path");
+      if (wasFirstTime) reportPathComplete();
     }
-    if (!REPORTING_ENDPOINT) return;           // offline / not configured
-    try {
-      await fetch(REPORTING_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event: "course_completed",
-          learner,
-          role: learner.role || null,
-          roleLabel: learner.role ? roleLabel(learner.role) : null,
-          course: { id: course.id, title: course.title },
-          completedAt: new Date().toISOString()
-        })
-      });
-    } catch (e) { console.warn("reporting failed:", e); }
   }
 
   /* =========================================================================
@@ -4779,6 +4855,10 @@
         const statusEl = sidebarLis[i].querySelector(".status");
         if (statusEl) statusEl.textContent = "Completed";
         markLessonDone(course.id, lesson.id);
+        // Fire the per-lesson event. This block only runs when the lesson
+        // transitions from incomplete to complete in this session, so it's
+        // already deduped against the pre-seeded "alreadyDone" path.
+        reportLessonComplete(course, lesson);
         const doneCount = completion.filter(Boolean).length;
         const pct = Math.round((doneCount / total) * 100);
         pctFill.style.width = pct + "%";
@@ -6378,9 +6458,18 @@ ${lessonBody || "(no additional context provided)"}`
   }
 
   renderMe();
+  // Fire a raw page_view immediately on every load — no identity required.
+  // This gives a full visit count including first-time visitors who haven't
+  // completed the identity modal yet.
+  reportPageView();
   const _l = getLearner();
-  if (!_l || !_l.role) showIdentityModal(route);
-  else route();
+  // Fire one session_start per page load. For new learners, fire after the
+  // identity modal submits so the Worker has name/email/role to upsert.
+  // For returning learners, fire immediately. Each call also refreshes
+  // Country (from Cloudflare's request.cf) and bumps Login count.
+  const startSession = () => { try { reportSessionStart(); } catch (e) {} };
+  if (!_l || !_l.role) showIdentityModal(() => { startSession(); route(); });
+  else { startSession(); route(); }
   </script>
 </body>
 </html>
