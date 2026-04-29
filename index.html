@@ -541,9 +541,17 @@
       box-shadow: 0 18px 40px rgba(5,13,26,.3);
       transition: transform .15s, box-shadow .15s;
     }
+    .course-pin {
+      transition: transform .25s, opacity .25s, box-shadow .15s;
+    }
     .course-pin:hover {
       transform: translateY(-2px);
       box-shadow: 0 24px 48px rgba(5,13,26,.36);
+    }
+    .course-pin.pin-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(20px);
     }
     .course-pin .pin-text { flex: 1; min-width: 0; }
     .course-pin .pin-eyebrow {
@@ -3748,6 +3756,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 5c0-1.66 4-3 9-3s9 1.34 9 3"/></svg>
             Finish learning path
           </button>
+          <button type="button" class="menu-item" data-act="generate-cert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/><path d="M8 13.5h8"/></svg>
+            Generate certificate
+          </button>
           <button type="button" class="menu-item" data-act="mid-path">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
             Set mid-path state
@@ -3833,6 +3845,7 @@
       case "reset":              demoResetProgress(); break;
       case "earn-all-badges":    demoEarnAllBadges(); break;
       case "finish-path":        demoFinishPath(); break;
+      case "generate-cert":      demoGenerateCert(); break;
       case "set-streak":         demoSet10DayStreak(); break;
       case "mid-path":           demoMidPathState(); break;
       case "preview-badge":      demoPreviewBadge(); break;
@@ -3923,6 +3936,31 @@
     // without permanently unlocking anything.
     const def = ENGAGEMENT_BADGES[Math.floor(Math.random() * ENGAGEMENT_BADGES.length)];
     queueBadgeCelebration(def);
+  }
+
+  function demoGenerateCert() {
+    // Same state mutations as demoFinishPath but routes straight to the
+    // certificate page so the demo can show the cert in one click.
+    const all = getCompleted();
+    MODULES.forEach(m => {
+      if (m.locked) return;
+      const lessons = lessonsOf(m);
+      if (!lessons.length) return;
+      setModuleProgress(m.id, {
+        lastLessonId: lessons[lessons.length - 1].id,
+        completedLessons: lessons.map(l => l.id),
+      });
+      all[m.id] = new Date().toISOString();
+    });
+    localStorage.setItem(LS_COMPLETED, JSON.stringify(all));
+    setPathCompletedAtIfMissing();
+    getCertId();
+    logActivityToday();
+    checkEngagementBadges("welcome");
+    checkEngagementBadges("lesson");
+    checkEngagementBadges("module");
+    checkEngagementBadges("path");
+    location.hash = "#/badge";
   }
 
   function showIdentityModal(onDone) {
@@ -4338,20 +4376,6 @@
 
           <section class="side-block" data-collapsed="false">
             <button type="button" class="side-block-head" aria-expanded="true" data-toggle="collapse">
-              <h3 class="side-title">For authors</h3>
-              <svg class="side-block-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div class="side-block-body">
-              <p class="side-sub">Browse every interactive block the platform supports, with live examples.</p>
-              <a class="btn btn-primary" href="#/blocks" style="display:inline-flex;align-items:center;gap:8px;">
-                Open block library
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-              </a>
-            </div>
-          </section>
-
-          <section class="side-block" data-collapsed="false">
-            <button type="button" class="side-block-head" aria-expanded="true" data-toggle="collapse">
               <h3 class="side-title">Leaderboard 🏆</h3>
               <svg class="side-block-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
             </button>
@@ -4636,6 +4660,18 @@
         revealedIdx = Math.min(i + 1, total - 1);
         break;
       }
+    }
+
+    // The course pin (bottom-left floating menu) overlaps the centred
+    // "Start module" CTA on small viewports while the hero is in view.
+    // Hide it until the learner has scrolled past the hero.
+    const heroEl = document.querySelector(".course-hero");
+    if (heroEl && pinBtn) {
+      pinBtn.classList.add("pin-hidden");
+      const heroSpy = new IntersectionObserver(([entry]) => {
+        pinBtn.classList.toggle("pin-hidden", entry.isIntersecting);
+      }, { threshold: 0.1 });
+      heroSpy.observe(heroEl);
     }
 
     // "Start module" hero CTA — for first-time visitors, this is the gate that
