@@ -1,0 +1,7 @@
+name = "academy-reporter"
+main = "reporting-worker.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "VISITS_KV"
+id = "76667875558e45a4ae55057ea5599451"

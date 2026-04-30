@@ -1,78 +1,48 @@
 /*
  * Academy Reporting Worker
  * ------------------------
- * Tiny Cloudflare Worker that receives lightweight learner events from the
- * academy's static HTML page and writes them to a Notion database, keyed by
- * email (one row per learner, upserted).
+ * Tiny Cloudflare Worker that receives learner events from the academy's
+ * static HTML page and stores them in Cloudflare KV. A separate scheduled
+ * task (academy-visitor-sync) reads from KV and writes to downstream systems.
  *
  * EVENTS ACCEPTED
  *   page_view         — fired on every page load, no identity required.
- *                       Stored in Cloudflare KV under key visits:YYYY-MM-DD as a
- *                       JSON array. Includes timestamp, country, referrer, and
- *                       learner info if already identified.
+ *                       Stored in KV under key visits:YYYY-MM-DD as a JSON array.
+ *                       Includes timestamp, country, referrer, and learner info
+ *                       if already identified.
  *   session_start     — fired on every page load when an identified learner is present.
- *                       Updates Latest login, bumps Login count, sets Country.
  *   lesson_completed  — fires the first time a lesson is marked done.
- *                       Adds "Lesson: <title>" to Milestones; sets Last milestone.
  *   module_completed  — fires the first time every lesson in a module is done.
- *                       Adds "Module: <title>" to Milestones; sets Last milestone.
  *   path_completed    — fires the first time the entire learning path is done.
- *                       Adds "Path: <title>" to Milestones; sets Last milestone.
  *
  *   The legacy "course_completed" event name is still accepted and treated as
  *   module_completed, so older deployed pages keep working.
  *
- * GET /visits
- *   Returns all stored page_view entries as a JSON array, sorted newest-first.
- *   Used by sync-visitors.js to build the local visitors.json file.
+ * GET /
+ *   Returns all stored visits and events as { visits: [...], events: [...] },
+ *   sorted newest-first. Used by sync-visitors.js to build visitors.json.
  *
- * KV SETUP (for page_view storage)
+ * KV SETUP
  *   1. Cloudflare dashboard -> Workers & Pages -> KV -> Create namespace "ACADEMY_VISITS".
  *   2. On your Worker -> Settings -> Bindings -> KV Namespace: variable name = VISITS_KV.
- *   If VISITS_KV is not bound the Worker silently skips KV writes (page_view still
- *   returns 200 so the page doesn't error).
+ *   If VISITS_KV is not bound the Worker silently skips KV writes (events still
+ *   return 200 so the page does not error).
  *
  * AUDIT-GRADE CAVEAT
  *   Events are reported by the learner's browser. A learner with DevTools could
- *   send fake events. This is fine for an internal engagement view but NOT proof
- *   of completion. The path to audit-grade is documented in the Notion callout
- *   on the "Qargo University - Project Management Dashboard" page (above the
- *   Learners Logs database).
+ *   send fake events. This is fine for an internal engagement view but not proof
+ *   of completion.
  *
- * HOW TO DEPLOY (5 minutes)
+ * HOW TO DEPLOY (2 minutes)
  *
- * 1. Create a Notion integration
- *    - Go to https://www.notion.so/my-integrations and click "New integration".
- *    - Name it (e.g. "Academy Reporter") and copy the Internal Integration Secret.
- *
- * 2. Connect the integration to the existing "Learners Logs" database
- *    - Open the database, click the "..." menu -> Connections -> add the integration.
- *    - Copy the database ID from the URL: notion.so/<workspace>/<DB_ID>?v=...
- *      The DB_ID is the 32-char hash before the "?".
- *      For Qargo's deployed DB the ID is: 351e32e8f8c880668b0ec3d835c78398
- *
- *    The database schema this Worker expects (already created):
- *      - Learner         (Title)
- *      - Email           (Email)              <-- upsert key
- *      - Role            (Select)
- *      - Company         (Text)
- *      - Latest login    (Date)
- *      - Login count     (Number)
- *      - Milestones      (Multi-select)
- *      - Last milestone  (Text)
- *      - Country         (Text)
- *
- * 3. Deploy this Worker
+ * 1. Deploy this Worker
  *    - https://dash.cloudflare.com -> Workers & Pages -> Create -> Hello World.
  *    - Replace the default code with this file, click Deploy.
- *    - Settings -> Variables, add two SECRETS:
- *         NOTION_TOKEN        = <integration secret>
- *         NOTION_DATABASE_ID  = <database id>
  *    - Settings -> Triggers -> note the *.workers.dev URL.
  *
- * 4. Wire the URL into index.html
+ * 2. Wire the URL into index.html
  *    - Open index.html, find REPORTING_ENDPOINT at the top of <script>, paste the URL.
- *    - Reload the page, log in, complete a lesson — check the Notion database.
+ *    - Reload the page, log in, complete a lesson.
  */
 
 const ALLOW_ORIGIN = "*"; // tighten to your domain once you deploy the site
@@ -100,7 +70,7 @@ export default {
     // Backwards compat: old pages send "course_completed" for module-level finishes.
     const event = eventRaw === "course_completed" ? "module_completed" : eventRaw;
 
-    // page_view: no learner required, stored in KV only (not Notion).
+    // page_view: no learner required, stored in KV only.
     if (event === "page_view") {
       return handlePageView(request, env, payload);
     }
@@ -134,8 +104,7 @@ export default {
     const nowIso = new Date().toISOString();
 
     // Store the event in KV. The scheduled sync task (academy-visitor-sync)
-    // reads from KV via GET /visits and handles all Notion writes — the Worker
-    // does not write to Notion directly.
+    // reads from KV via GET / and handles all downstream writes.
     await storeEventInKV(env, {
       event,
       at: payload.at || nowIso,
@@ -191,8 +160,7 @@ async function handleGetVisits(env) {
     return json({ error: "VISITS_KV binding not configured" }, 503);
   }
 
-  // Return both raw page views and learner events so the scheduled sync
-  // can process everything from one endpoint.
+  // Return both raw page views and learner events for the scheduled sync.
   const [visits, events] = await Promise.all([
     fetchKVPrefix(env, "visits:"),
     fetchKVPrefix(env, "events:"),
