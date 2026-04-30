@@ -1064,6 +1064,36 @@
     }
     .path-card-foot .btn-primary:hover { background: var(--brand-500); text-decoration: none; }
 
+    /* Empty-state block used inside .path-card when there are no modules to
+       show yet (currently the Internal track until content is uploaded to KV).
+       Kept generic so other tracks can reuse it later. */
+    .path-empty {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 22px 20px;
+      background: var(--surface-2);
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      color: var(--ink-700);
+    }
+    .path-empty-icon {
+      flex: 0 0 48px;
+      width: 48px; height: 48px;
+      display: grid; place-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--ink-500);
+    }
+    .path-empty strong {
+      display: block;
+      font-size: 15px; font-weight: 700; color: var(--brand-900);
+      margin-bottom: 4px;
+    }
+    .path-empty p {
+      margin: 0;
+      font-size: 14px; color: var(--ink-500); line-height: 1.55;
+    }
+
     /* Locked cards (specialised / extra-curricular) */
     .card-locked {
       cursor: not-allowed;
@@ -3037,6 +3067,16 @@
      appear in the dropdown with a "Coming soon" hint so users can see the
      direction without being able to pick them yet.
      ========================================================================= */
+  /* The "internal" role is restricted: it should only be selectable by Qargo
+     staff. The dropdown hides it unless the email field contains a Qargo
+     domain. The authoritative check is server-side: picking Internal asks
+     for a shared password, the Worker verifies it and returns a signed
+     token, and every Internal content fetch has to present that token.
+     If a learner forces the role locally without the password, the Worker
+     refuses to serve Internal modules. */
+  const INTERNAL_EMAIL_DOMAIN = "qargo.com";
+  const INTERNAL_AUTH_URL = `${REPORTING_ENDPOINT}/auth/internal`;
+  const LS_INTERNAL_TOKEN = "academy.internal_token";
   const ROLES = [
     { id: "super_admin",   label: "Super Admin",
       blurb: "Full-stack operator. Needs the complete end-to-end journey across every Qargo module.",
@@ -3050,7 +3090,20 @@
     { id: "customer_svc",  label: "Customer Services",
       blurb: "Order entry, customer communications and day-to-day support.",
       available: false },
+    { id: "internal",      label: "Internal",
+      blurb: "Qargo staff only. Unlocks Internal modules served from behind Cloudflare Access.",
+      available: true, internalOnly: true },
   ];
+
+  /* True when the email looks like it belongs to Qargo. Used to soft-gate the
+     Internal role in the identity modal. The authoritative check sits in the
+     Worker / Cloudflare Access. */
+  function isInternalEmail(email) {
+    if (!email) return false;
+    const at = email.lastIndexOf("@");
+    if (at < 0) return false;
+    return email.slice(at + 1).trim().toLowerCase() === INTERNAL_EMAIL_DOMAIN;
+  }
 
   /* =========================================================================
      LEARNING PATH, MODULES AND EXTRAS
@@ -3064,10 +3117,46 @@
   let LEARNING_PATH = { id: "", title: "", description: "", modules: MODULES };
   let SPECIALISED_MODULES = [];
   let EXTRA_CURRICULAR = [];
+  let INTERNAL_MODULES = [];
   let COURSES = MODULES;
 
   const CONTENT_BASE = "content";
+  /* Internal content is served by the same Worker that handles reporting,
+     under /internal/<kind>/<id>.json. Override with window.QARGO_INTERNAL_BASE
+     at deploy time if you ever split it onto a different origin. */
+  const INTERNAL_BASE = (typeof window !== "undefined" && window.QARGO_INTERNAL_BASE) || `${REPORTING_ENDPOINT}/internal`;
   const LS_CONTENT_CACHE = "academy.content_cache";
+
+  /* Internal-token helpers. The token is a Worker-issued, HMAC-signed string
+     proving the bearer authenticated with the shared password. We treat any
+     401 from the Worker as "token bad / expired", clear it, and let the next
+     profile switch re-prompt for the password. */
+  function getInternalToken() {
+    try { return localStorage.getItem(LS_INTERNAL_TOKEN) || null; }
+    catch { return null; }
+  }
+  function setInternalToken(token) {
+    try { localStorage.setItem(LS_INTERNAL_TOKEN, token); } catch (e) {}
+  }
+  function clearInternalToken() {
+    try { localStorage.removeItem(LS_INTERNAL_TOKEN); } catch (e) {}
+  }
+  /* Single place to authenticate against the Worker. Returns the token on
+     success, throws Error("invalid password") on a 401, throws other errors
+     for network / server failures so the caller can distinguish "bad pw"
+     (show inline error) from "Worker is down" (toast and bail). */
+  async function requestInternalToken(password) {
+    const res = await fetch(INTERNAL_AUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (res.status === 401) throw new Error("invalid password");
+    if (!res.ok) throw new Error(`auth failed (${res.status})`);
+    const data = await res.json();
+    if (!data?.token) throw new Error("auth response missing token");
+    return data.token;
+  }
 
   async function fetchJSON(url) {
     const res = await fetch(url, { cache: "no-cache" });
@@ -3090,12 +3179,61 @@
     } catch (e) { /* quota or disabled — non-fatal */ }
   }
 
-  async function fetchBundle(manifest) {
+  /* Public-content fetches must succeed; an outage here is a real bug.
+     Internal-content fetches must NOT be allowed to break the public app:
+     the worker may be unreachable, the token may have expired, the route
+     may not exist yet, etc. Swallow per-file failures and log a warning.
+     A 401 anywhere in the internal flow is treated as "token expired",
+     clears the token, and the user gets re-prompted next profile switch. */
+  async function fetchInternalJSON(url) {
+    const token = getInternalToken();
+    const res = await fetch(url, {
+      cache: "no-cache",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.status === 401) {
+      clearInternalToken();
+      throw new Error("internal token expired");
+    }
+    if (!res.ok) throw new Error("Failed to fetch " + url + " (" + res.status + ")");
+    return res.json();
+  }
+
+  async function fetchInternalKind(kind, ids) {
+    const results = await Promise.all((ids || []).map(async id => {
+      try { return await fetchInternalJSON(`${INTERNAL_BASE}/${kind}/${id}.json`); }
+      catch (e) {
+        console.warn(`[content] failed to fetch internal ${kind}/${id}:`, e.message);
+        return null;
+      }
+    }));
+    return results.filter(Boolean);
+  }
+
+  async function fetchInternalManifest() {
+    try {
+      return await fetchInternalJSON(`${INTERNAL_BASE}/manifest.json`);
+    } catch (e) {
+      console.warn("[content] internal manifest unavailable, public content only:", e.message);
+      return null;
+    }
+  }
+
+  async function fetchBundle(manifest, internalManifest) {
+    const fetchKind = async (kind) => {
+      const pub = await Promise.all(
+        (manifest[kind] || []).map(id => fetchJSON(`${CONTENT_BASE}/${kind}/${id}.json`))
+      );
+      const int = internalManifest
+        ? await fetchInternalKind(kind, internalManifest[kind])
+        : [];
+      return [...pub, ...int];
+    };
     const [paths, tracks, modules, lessons] = await Promise.all([
-      Promise.all(manifest.paths.map(id => fetchJSON(`${CONTENT_BASE}/paths/${id}.json`))),
-      Promise.all(manifest.tracks.map(id => fetchJSON(`${CONTENT_BASE}/tracks/${id}.json`))),
-      Promise.all(manifest.modules.map(id => fetchJSON(`${CONTENT_BASE}/modules/${id}.json`))),
-      Promise.all(manifest.lessons.map(id => fetchJSON(`${CONTENT_BASE}/lessons/${id}.json`))),
+      fetchKind("paths"),
+      fetchKind("tracks"),
+      fetchKind("modules"),
+      fetchKind("lessons"),
     ]);
     return { paths, tracks, modules, lessons };
   }
@@ -3144,15 +3282,32 @@
       },
       specialised: resolveTrack("specialised"),
       extraCurricular: resolveTrack("extra-curricular"),
+      internal: resolveTrack("internal"),
     };
   }
 
   async function loadContent() {
     const manifest = await fetchJSON(`${CONTENT_BASE}/manifest.json`);
-    let bundle = readContentCache(manifest.version);
+    /* Internal content is only attempted for learners who have selected
+       the Internal role. This keeps the public flow on a single fetch
+       path and prevents externals from generating spurious 401s against
+       the Worker. The Worker / Cloudflare Access still has the final
+       say if anyone forces the role locally. */
+    const learner = getLearner();
+    const wantsInternal = learner?.role === "internal";
+    const internalManifest = wantsInternal ? await fetchInternalManifest() : null;
+
+    /* Cache key folds in the internal manifest version (if any) so that
+       toggling roles or shipping new internal content invalidates a stale
+       bundle without having to bump the public version. */
+    const cacheKey = internalManifest
+      ? `${manifest.version}+int:${internalManifest.version || "0"}`
+      : manifest.version;
+
+    let bundle = readContentCache(cacheKey);
     if (!bundle) {
-      bundle = await fetchBundle(manifest);
-      writeContentCache(manifest.version, bundle);
+      bundle = await fetchBundle(manifest, internalManifest);
+      writeContentCache(cacheKey, bundle);
     }
     const built = assembleContent(bundle);
     // Mutate in place where possible so any closures that captured the
@@ -3165,6 +3320,8 @@
     built.specialised.forEach(t => SPECIALISED_MODULES.push(t));
     EXTRA_CURRICULAR.length = 0;
     built.extraCurricular.forEach(t => EXTRA_CURRICULAR.push(t));
+    INTERNAL_MODULES.length = 0;
+    built.internal.forEach(t => INTERNAL_MODULES.push(t));
     // COURSES is an alias for MODULES, kept in sync via the same array.
     COURSES = MODULES;
   }
@@ -3246,7 +3403,14 @@
   }
   function switchProfile() {
     // Keep the existing learner pre-filled and let them change any field.
-    showIdentityModal(() => route());
+    // After save, reload content so that picking / leaving the Internal role
+    // pulls in (or drops) Internal modules. loadContent() is fail-safe for
+    // internal fetches, so a network blip here cannot brick the catalog.
+    showIdentityModal(async () => {
+      try { await loadContent(); }
+      catch (e) { console.warn("[content] reload after profile switch failed:", e.message); }
+      route();
+    });
   }
   function roleLabel(id) {
     const r = ROLES.find(r => r.id === id);
@@ -3790,10 +3954,17 @@
     if (document.getElementById("id-modal")) return;
     const existing = getLearner() || {};
     const isEdit = !!existing.name;
-    const roleOptions = ROLES.map(r => {
+    /* Build the role <option> list. Internal-only roles are filtered out
+       unless the current email value already qualifies. The list is rebuilt
+       on email input so the option appears the moment the learner types a
+       Qargo address. */
+    const buildRoleOptions = (currentEmail, currentRole) => ROLES.filter(r => {
+      if (!r.internalOnly) return true;
+      return isInternalEmail(currentEmail);
+    }).map(r => {
       const label = r.available ? r.label : `${r.label} (coming soon)`;
       const disabledAttr = r.available ? "" : "disabled";
-      const selectedAttr = existing.role === r.id && r.available ? "selected" : "";
+      const selectedAttr = currentRole === r.id && r.available ? "selected" : "";
       return `<option value="${r.id}" ${selectedAttr} ${disabledAttr}>${escape(label)}</option>`;
     }).join("");
     const back = document.createElement("div");
@@ -3813,9 +3984,15 @@
         <label for="id-role">Your role</label>
         <select id="id-role">
           <option value="" ${!existing.role ? "selected" : ""} disabled>Pick the role closest to what you do</option>
-          ${roleOptions}
+          ${buildRoleOptions(existing.email || "", existing.role)}
         </select>
         <div class="role-hint" id="id-role-hint"></div>
+        <div id="id-internal-row" hidden>
+          <label for="id-internal-pw">Internal access password</label>
+          <input id="id-internal-pw" type="password" autocomplete="off"
+            placeholder="Shared with Qargo staff" />
+          <div class="role-hint">Required to unlock Internal modules. Ask your manager if you do not have it.</div>
+        </div>
         <div class="error" id="id-error"></div>
         <div class="actions">
           <button class="primary" id="id-save">${isEdit ? "Save" : "Start learning"}</button>
@@ -3824,29 +4001,88 @@
     `;
     document.body.appendChild(back);
     const nameEl = document.getElementById("id-name");
+    const emailEl = document.getElementById("id-email");
     const roleEl = document.getElementById("id-role");
     const hintEl = document.getElementById("id-role-hint");
+    const saveBtn = document.getElementById("id-save");
+    const internalRow = document.getElementById("id-internal-row");
+    const internalPwEl = document.getElementById("id-internal-pw");
     const updateHint = () => {
       const r = ROLES.find(r => r.id === roleEl.value);
       hintEl.textContent = r ? r.blurb : "";
+      // Show the password field only when Internal is the active selection.
+      // Hide and clear it otherwise so we never accidentally submit a stale
+      // password the user typed before changing their mind.
+      const showInternal = !!r?.internalOnly;
+      internalRow.hidden = !showInternal;
+      if (!showInternal) internalPwEl.value = "";
+    };
+    /* Rebuild role options whenever the email changes so internal-only
+       options can appear / disappear without losing the current selection
+       (when it is still valid). */
+    const refreshRoleOptions = () => {
+      const prev = roleEl.value;
+      const placeholder = `<option value="" disabled ${!prev ? "selected" : ""}>Pick the role closest to what you do</option>`;
+      roleEl.innerHTML = placeholder + buildRoleOptions(emailEl.value.trim(), prev);
+      // If the previous selection is no longer offered (e.g. internal role
+      // dropped because the email was changed to a non-Qargo address), the
+      // <select> resets to the placeholder. The hint follows.
+      updateHint();
     };
     roleEl.addEventListener("change", updateHint);
+    emailEl.addEventListener("input", refreshRoleOptions);
     updateHint();
     (isEdit ? roleEl : nameEl).focus();
-    const submit = () => {
+    const submit = async () => {
       const name = document.getElementById("id-name").value.trim();
       const email = document.getElementById("id-email").value.trim();
       const company = document.getElementById("id-company").value.trim();
       const role = roleEl.value;
       const err = document.getElementById("id-error");
+      err.textContent = "";
       if (!name || !email || !company) { err.textContent = "Name, email, and company are required."; return; }
       if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Please enter a valid email."; return; }
       if (!role) { err.textContent = "Please pick your role."; return; }
+      // Final client-side guard: the Internal role requires a Qargo email.
+      // The authoritative check is the Worker password verification below;
+      // this just keeps externals from picking the role by mistake.
+      const roleDef = ROLES.find(r => r.id === role);
+      if (roleDef?.internalOnly && !isInternalEmail(email)) {
+        err.textContent = "The Internal profile is reserved for Qargo staff. Please use your @qargo.com email.";
+        return;
+      }
+      // Internal role: verify the shared password against the Worker before
+      // saving the profile. If the call fails, the modal stays open so the
+      // user can retry without losing what they typed.
+      if (roleDef?.internalOnly) {
+        const password = internalPwEl.value;
+        if (!password) { err.textContent = "Please enter the Internal access password."; return; }
+        saveBtn.disabled = true;
+        const prevLabel = saveBtn.textContent;
+        saveBtn.textContent = "Verifying...";
+        try {
+          const token = await requestInternalToken(password);
+          setInternalToken(token);
+        } catch (e) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = prevLabel;
+          err.textContent = e.message === "invalid password"
+            ? "That password is not correct. Try again or ask your manager."
+            : `Could not reach the Internal auth service: ${e.message}`;
+          return;
+        }
+        saveBtn.disabled = false;
+        saveBtn.textContent = prevLabel;
+      } else {
+        // Picking any non-internal role drops a previously stored token so
+        // it cannot be reused by accident if the role is switched back.
+        clearInternalToken();
+      }
       setLearner({ name, email, company, role });
       back.remove();
       if (onDone) onDone();
     };
-    document.getElementById("id-save").addEventListener("click", submit);
+    saveBtn.addEventListener("click", submit);
     back.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
   }
 
@@ -4048,14 +4284,40 @@
       ${role ? `
         <div class="section-header home-section-header">
           <div>
-            <h2 class="title">Recommended for you</h2>
-            <p class="sub">Curated for <span class="role-accent">${escape(roleLabel(role))}</span></p>
+            <h2 class="title">${role === "internal" ? "Internal training" : "Recommended for you"}</h2>
+            <p class="sub">${role === "internal"
+              ? `For the <span class="role-accent">Qargo team</span>. Internal modules will appear here once they have been published.`
+              : `Curated for <span class="role-accent">${escape(roleLabel(role))}</span>`}</p>
           </div>
         </div>
       ` : ""}
       <div class="home-layout">
         <div class="home-main">
-          ${role ? `
+          ${role === "internal" ? `
+            <!-- Internal track is gated behind the Worker. The path-card chrome
+                 is reused so the layout matches the rest of the home page; the
+                 body shows a simple empty state until INTERNAL_MODULES is
+                 populated from KV. No path-list / cert-card is rendered for
+                 Internal because the Super Admin certificate does not apply. -->
+            <article class="path-card">
+              <div class="path-card-head">
+                <div class="path-meta">
+                  <span class="path-code">Internal track</span>
+                </div>
+                <h3>Content is on the way</h3>
+                <p>The Internal training track is still being built. Modules and lessons will appear here once the team publishes them.</p>
+              </div>
+              <div class="path-empty">
+                <div class="path-empty-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+                </div>
+                <div>
+                  <strong>Nothing to take just yet</strong>
+                  <p>No Internal modules have been published. Check back soon, or contact the Academy team if you have content ready to add.</p>
+                </div>
+              </div>
+            </article>
+          ` : role ? `
             <article class="path-card">
               <div class="path-card-head">
                 <div class="path-meta">
@@ -6284,8 +6546,18 @@ ${lessonBody || "(no additional context provided)"}`
       }
       return;
     }
-    if (!_l || !_l.role) showIdentityModal(() => { startSession(); route(); });
-    else { startSession(); route(); }
+    if (!_l || !_l.role) {
+      // First-time visitor: after the welcome modal saves a profile, reload
+      // content so an Internal learner picks up Internal modules immediately
+      // (otherwise loadContent ran when no learner existed and skipped the
+      // internal manifest). loadContent is fail-safe for internal fetches.
+      showIdentityModal(async () => {
+        try { await loadContent(); }
+        catch (e) { console.warn("[content] reload after first profile failed:", e.message); }
+        startSession();
+        route();
+      });
+    } else { startSession(); route(); }
   })();
   </script>
 </body>

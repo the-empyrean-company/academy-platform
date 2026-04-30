@@ -1,14 +1,15 @@
 # Qargo Academy — project context
 
-A single-file SCORM-style eLearning mockup (`index.html`). Vanilla JS + CSS, no build step. Everything below reflects decisions we've locked in so far.
+A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `index.html`; lesson content has been pulled out into a versioned `content/` tree fetched at runtime. A small Cloudflare Worker (`reporting-worker.js`) handles event reporting and now also gates an Internal track behind a shared password. Vanilla JS, no build step. Everything below reflects decisions we've locked in so far.
 
 ## Architecture
 
-- **One file**: `index.html` contains HTML shell, all CSS, all JS.
+- **Shell file**: `index.html` contains HTML shell, all CSS, all JS. Lesson content is no longer inlined; it is loaded from `content/` at runtime.
+- **Content tree**: `content/manifest.json` lists every paths / tracks / modules / lessons ID. Each ID resolves to its own JSON file under `content/<kind>/<id>.json`. `loadContent()` fetches the manifest, fans out the per-file fetches in parallel, and assembles `MODULES`, `LEARNING_PATH`, `SPECIALISED_MODULES`, `EXTRA_CURRICULAR`, and `INTERNAL_MODULES`. The bundle is cached in `localStorage` keyed by `manifest.version` so subsequent loads are one fetch.
 - **Routing**: hash-based — `#/` is the catalog, `#/course/<id>` is a module, `#/blocks` is the block library demo page. Anything else → not-found.
 - **Content hierarchy**: Learning Path → Modules → Lessons → Blocks.
 - **Block types**: `text`, `accordion`, `summary`, `quiz`, `flashcards` (alias `flipcard`), `match`, `embed`, `image`, `carousel`, `fillblanks`, `process`, `timeline`, `milestone`, `tutor`. Each has its own renderer; the dispatcher is `renderBlock()`.
-- **Persistence**: `localStorage` keys `LS_LEARNER` (role/name), `LS_COMPLETED` (finished modules), `LS_PROGRESS` (per-module completed lessons, tracked by lesson ID, not index), `academy.openai_key` (AI tutor key, set by the learner via the tutor block's settings cog).
+- **Persistence**: `localStorage` keys `LS_LEARNER` (role/name), `LS_COMPLETED` (finished modules), `LS_PROGRESS` (per-module completed lessons, tracked by lesson ID, not index), `LS_CONTENT_CACHE` (the assembled content bundle keyed by manifest version), `LS_INTERNAL_TOKEN` (Worker-issued session token for the Internal track), `academy.openai_key` (AI tutor key, set by the learner via the tutor block's settings cog).
 - **Completion contract**: each block renderer receives a `markDone` callback, plus an optional `ctx` argument with `{ lesson: { title, body }, course: { id, title } }` used by the AI tutor. A lesson is marked complete only when all its blocks have signaled done. The path card and progress bars are derived from this state.
 
 ## Home page
@@ -105,15 +106,41 @@ A single-file SCORM-style eLearning mockup (`index.html`). Vanilla JS + CSS, no 
 - `LS_ACTIVITY = "academy.activity_dates"` — array of unique `YYYY-MM-DD` strings. `logActivityToday()` is called from `markLessonDone()`. `getCurrentStreak()` returns the longest run of consecutive days ending today or yesterday (a learner has until the next midnight to extend their streak).
 - `checkEngagementBadges(reason)` is the single entry point that awards badges based on the triggering action: `welcome` (profile created → `first-day`), `lesson` (lesson done → activity logged, `first-lesson` + streak badges), `module` (module done → `first-module`), `path` (full path done → `first-path`).
 
+## Internal track and password gate
+
+- **Profile**: a fifth role, `internal`, sits in `ROLES` next to the four customer-facing roles. It is `internalOnly: true`, which the identity modal reads to hide the option from the dropdown unless the email field already matches `INTERNAL_EMAIL_DOMAIN` (`qargo.com`). On submit, the modal re-checks the email and refuses to save if the role is internal but the email does not qualify. This is a UX guard, not a security boundary.
+- **Authoritative gate**: when a learner picks Internal, the modal shows a password field. On submit it POSTs to `${REPORTING_ENDPOINT}/auth/internal` with `{ password }`. The Worker compares it constant-time against `env.INTERNAL_PASSWORD`, and on match returns `{ token, expiresAt }` where the token is an HMAC-SHA256 signature of `{ scope: "internal", exp }` using `env.INTERNAL_JWT_SECRET`. The browser stores the token in `LS_INTERNAL_TOKEN`. Every Internal content fetch attaches `Authorization: Bearer <token>`. Token TTL is one week (`INTERNAL_TOKEN_TTL_SECONDS` in the Worker).
+- **Required Worker secrets**: `INTERNAL_PASSWORD` and `INTERNAL_JWT_SECRET`, both set with `wrangler secret put`. If either is missing the Worker fails closed: `/auth/internal` and `/internal/*` both return 503, leaving the public flow untouched. Rotate `INTERNAL_PASSWORD` to revoke future logins; rotate `INTERNAL_JWT_SECRET` to also instantly invalidate every existing token.
+- **Worker routes**:
+  - `POST /auth/internal` — verify password, mint signed token.
+  - `GET /internal/<kind>/<id>.json` and `GET /internal/manifest.json` — read from KV under the `internal:` key prefix on the existing `VISITS_KV` namespace. Auth required. Returns 401 on missing/bad token, 404 on missing key, 503 if secrets / KV unbound. Path traversal rejected at the regex check.
+  - All existing reporting routes (`POST /` for events, `GET /` for the visitor dump) are untouched.
+  - CORS now allows `Authorization` so the browser can attach the token cross-origin.
+- **Loader behaviour**: `loadContent()` only fetches the Internal manifest when `learner?.role === "internal"`. Internal-content failures (Worker down, token expired, KV miss) are non-fatal — they log a warning, leave `INTERNAL_MODULES` empty, and let the public flow continue. A 401 from any internal fetch clears the stored token so the next profile switch re-prompts. The cache key folds in the internal manifest version so switching roles or shipping new internal content invalidates a stale bundle without bumping the public version.
+- **Home page rendering**: when `role === "internal"`, the "Recommended for you" header swaps to "Internal training" and the path-card / cert-card slot is replaced with a single empty-state placeholder card (eyebrow `Internal track`, headline `Content is on the way`, dashed-border `path-empty` block) until `INTERNAL_MODULES` is populated. Specialised and Extra-curricular sections are unchanged.
+- **Content storage**: Internal content lives in KV under keys `internal:manifest.json`, `internal:tracks/<id>.json`, `internal:modules/<id>.json`, `internal:lessons/<id>.json`, mirroring the public `content/` tree. Upload via `wrangler kv:key put --binding VISITS_KV "internal:..." '{...}'`. Nothing is committed to git.
+
 ## Rules to keep
 
 - **Do not remove interactive blocks or structural aspects of the platform without verifying first.** This includes block renderers, the block dispatcher, progressive reveal, the lesson-transition banner, the collapsible TOC, per-block completion tracking, and the learning path > modules > lessons hierarchy.
 - **Copy avoids em dashes and stray emojis** — this was an earlier cleanup pass; keep new copy consistent.
 - **No pixel offsets for layout alignment** — prefer grid/flex auto-alignment. If pixel math starts creeping in, restructure the DOM instead.
+- **Internal-track secrets never enter the repo**. Set them via `wrangler secret put`, rotate them there. `.gitignore` blocks the usual local-secret filenames as a safety net.
 
 ## File layout
 
 ```
-index.html        — the entire app
-CONTEXT.md        — this file
+index.html                    — shell, CSS, JS, runtime content loader
+content/                      — public lesson content, fetched at runtime
+  manifest.json                 version + ID lists for paths / tracks / modules / lessons
+  paths/<id>.json               { id, title, description, modules: [moduleId] }
+  tracks/<id>.json              { id, title, description, modules: [moduleId] }
+  modules/<id>.json             { id, code, title, description, roles, locked, lessons: [lessonId] }
+  lessons/<id>.json             { id, title, blocks: [...] }
+reporting-worker.js           — Cloudflare Worker: event reporting + Internal auth + gated Internal content
+wrangler.toml                 — Worker config + KV namespace binding + documented secrets
+sync-visitors.js              — pulls reporting events from the Worker into visitors.json
+visitors.json                 — generated visitor / event dump
+CONTEXT.md                    — this file
+LESSON_AUTHORING_INSTRUCTIONS.md — guidance for authoring new lessons
 ```

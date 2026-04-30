@@ -2,6 +2,27 @@ name = "academy-reporter"
 main = "reporting-worker.js"
 compatibility_date = "2024-01-01"
 
+# The same KV namespace is used for two purposes:
+#   visits:YYYY-MM-DD  / events:YYYY-MM-DD  — reporting data (existing).
+#   internal:<path>                          — Internal track content (new).
 [[kv_namespaces]]
 binding = "VISITS_KV"
 id = "76667875558e45a4ae55057ea5599451"
+
+# ---------------------------------------------------------------------------
+# Internal track secrets (set via `wrangler secret put`, NOT committed here).
+#
+#   wrangler secret put INTERNAL_PASSWORD
+#       Shared password staff type into the Academy when they pick the
+#       Internal profile. Rotate this to invalidate every existing token at
+#       once. Pick something long and random; password managers welcome.
+#
+#   wrangler secret put INTERNAL_JWT_SECRET
+#       Random string the Worker uses to HMAC-sign session tokens. Generate
+#       once with `openssl rand -hex 32` and never share it. If it leaks,
+#       rotate it and every existing token will stop verifying.
+#
+# Both are read by reporting-worker.js. If either secret is missing, the
+# /auth/internal and /internal/* routes return 503 instead of authenticating
+# anyone, so a half-configured Worker fails closed.
+# ---------------------------------------------------------------------------

@@ -4,3 +4,9 @@
 *.log
 .wrangler/
 serve.command
+
+# Worker secrets are managed via `wrangler secret put` and never committed.
+# These patterns guard against an accidental local copy ending up in git.
+.dev.vars
+.dev.vars.*
+secrets.local.*
