@@ -3118,6 +3118,7 @@
   let SPECIALISED_MODULES = [];
   let EXTRA_CURRICULAR = [];
   let INTERNAL_MODULES = [];
+  let INTERNAL_TRACK = null;
   let COURSES = MODULES;
 
   const CONTENT_BASE = "content";
@@ -3259,18 +3260,29 @@
       return mod;
     }).filter(Boolean);
 
-    // Tracks: resolve module IDs into the same trimmed shape the old
-    // SPECIALISED_MODULES / EXTRA_CURRICULAR arrays had (id/title/description).
+    // Tracks: resolve module IDs into module objects. For locked tracks
+    // (specialised, extra-curricular) only id/title/description are read by
+    // renderLocked. For the internal track the full module (including
+    // resolved lessons) is needed so the course route can render it.
     const trackById = Object.fromEntries(bundle.tracks.map(t => [t.id, t]));
-    const resolveTrack = (trackId) => {
+    const resolveTrack = (trackId, { full = false } = {}) => {
       const t = trackById[trackId];
       if (!t) return [];
       return (t.modules || []).map(id => {
         const mod = moduleById[id];
         if (!mod) { console.warn("[content] module not found in track:", id); return null; }
-        return { id: mod.id, title: mod.title, description: mod.description };
+        return full ? mod : { id: mod.id, title: mod.title, description: mod.description };
       }).filter(Boolean);
     };
+
+    // Internal track meta is exposed separately so the home page can frame
+    // the Internal section as a path-style card with title/description.
+    const internalTrackFile = trackById["internal"] || null;
+    const internalTrack = internalTrackFile ? {
+      id: internalTrackFile.id,
+      title: internalTrackFile.title,
+      description: internalTrackFile.description,
+    } : null;
 
     return {
       modules: orderedModules,
@@ -3282,7 +3294,8 @@
       },
       specialised: resolveTrack("specialised"),
       extraCurricular: resolveTrack("extra-curricular"),
-      internal: resolveTrack("internal"),
+      internal: resolveTrack("internal", { full: true }),
+      internalTrack,
     };
   }
 
@@ -3322,8 +3335,11 @@
     built.extraCurricular.forEach(t => EXTRA_CURRICULAR.push(t));
     INTERNAL_MODULES.length = 0;
     built.internal.forEach(t => INTERNAL_MODULES.push(t));
-    // COURSES is an alias for MODULES, kept in sync via the same array.
-    COURSES = MODULES;
+    INTERNAL_TRACK = built.internalTrack || null;
+    // COURSES is the lookup the course route uses. It unions the public path
+    // modules with any internal modules so /#course/<id> resolves either.
+    // Specialised and extra-curricular are intentionally excluded (locked).
+    COURSES = [...MODULES, ...INTERNAL_MODULES];
   }
 
 
@@ -4286,7 +4302,9 @@
           <div>
             <h2 class="title">${role === "internal" ? "Internal training" : "Recommended for you"}</h2>
             <p class="sub">${role === "internal"
-              ? `For the <span class="role-accent">Qargo team</span>. Internal modules will appear here once they have been published.`
+              ? (INTERNAL_MODULES.length > 0
+                  ? `For the <span class="role-accent">Qargo team</span>.`
+                  : `For the <span class="role-accent">Qargo team</span>. Internal modules will appear here once they have been published.`)
               : `Curated for <span class="role-accent">${escape(roleLabel(role))}</span>`}</p>
           </div>
         </div>
@@ -4294,29 +4312,90 @@
       <div class="home-layout">
         <div class="home-main">
           ${role === "internal" ? `
-            <!-- Internal track is gated behind the Worker. The path-card chrome
-                 is reused so the layout matches the rest of the home page; the
-                 body shows a simple empty state until INTERNAL_MODULES is
-                 populated from KV. No path-list / cert-card is rendered for
-                 Internal because the Super Admin certificate does not apply. -->
-            <article class="path-card">
-              <div class="path-card-head">
-                <div class="path-meta">
-                  <span class="path-code">Internal track</span>
+            <!-- Internal track is gated behind the Worker. When KV holds no
+                 internal modules yet, the empty-state placeholder renders.
+                 As soon as INTERNAL_MODULES has content, a path-style card
+                 takes its place: track title, module list with progress, CTA.
+                 No cert-card is rendered for Internal because the Super Admin
+                 certificate does not apply. -->
+            ${INTERNAL_MODULES.length === 0 ? `
+              <article class="path-card">
+                <div class="path-card-head">
+                  <div class="path-meta">
+                    <span class="path-code">Internal track</span>
+                  </div>
+                  <h3>Content is on the way</h3>
+                  <p>The Internal training track is still being built. Modules and lessons will appear here once the team publishes them.</p>
                 </div>
-                <h3>Content is on the way</h3>
-                <p>The Internal training track is still being built. Modules and lessons will appear here once the team publishes them.</p>
-              </div>
-              <div class="path-empty">
-                <div class="path-empty-icon" aria-hidden="true">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+                <div class="path-empty">
+                  <div class="path-empty-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+                  </div>
+                  <div>
+                    <strong>Nothing to take just yet</strong>
+                    <p>No Internal modules have been published. Check back soon, or contact the Academy team if you have content ready to add.</p>
+                  </div>
                 </div>
-                <div>
-                  <strong>Nothing to take just yet</strong>
-                  <p>No Internal modules have been published. Check back soon, or contact the Academy team if you have content ready to add.</p>
-                </div>
-              </div>
-            </article>
+              </article>
+            ` : (() => {
+                /* Compute progress across the internal track using the same
+                   helpers the public path uses (getModuleProgress, moduleLessonCount).
+                   These work on any module that has lessons resolved. */
+                const intCompleted = INTERNAL_MODULES.reduce((acc, m) => acc + getModuleProgress(m.id).completedLessons.length, 0);
+                const intTotal = INTERNAL_MODULES.reduce((acc, m) => acc + moduleLessonCount(m), 0);
+                const intPct = intTotal > 0 ? Math.round((intCompleted / intTotal) * 100) : 0;
+                const intMinutes = INTERNAL_MODULES.filter(m => !m.locked).reduce((acc, m) => acc + moduleBlockCount(m) * 2, 0);
+                const intHours = Math.max(1, Math.round(intMinutes / 60));
+                const intNext = INTERNAL_MODULES.find(m => {
+                  const p = getModuleProgress(m.id);
+                  return !m.locked && p.completedLessons.length < moduleLessonCount(m);
+                }) || INTERNAL_MODULES.find(m => !m.locked) || null;
+                const intCtaLabel = intCompleted > 0 ? "Continue learning" : "Start learning path";
+                const trackTitle = (INTERNAL_TRACK && INTERNAL_TRACK.title) || "Internal Onboarding";
+                const trackDesc = (INTERNAL_TRACK && INTERNAL_TRACK.description) || "";
+                return `
+                  <article class="path-card">
+                    <div class="path-card-head">
+                      <div class="path-meta">
+                        <span class="path-code">Learning path</span>
+                        <span class="dot-sep">·</span>
+                        <span>${INTERNAL_MODULES.length} module${INTERNAL_MODULES.length === 1 ? "" : "s"}</span>
+                        <span class="dot-sep">·</span>
+                        <span>~${intHours}h total</span>
+                      </div>
+                      <h3>${escape(trackTitle)}</h3>
+                      <p>${escape(trackDesc)}</p>
+                    </div>
+                    <ol class="path-module-list">
+                      ${INTERNAL_MODULES.map((m) => {
+                        const p = getModuleProgress(m.id);
+                        const lessons = moduleLessonCount(m);
+                        const moduleDone = !m.locked && lessons > 0 && p.completedLessons.length >= lessons;
+                        const moduleStarted = !m.locked && p.completedLessons.length > 0 && !moduleDone;
+                        const state = m.locked ? "locked" : moduleDone ? "done" : moduleStarted ? "active" : "ready";
+                        const clickable = !m.locked && lessons > 0;
+                        const Tag = clickable ? "a" : "div";
+                        const hrefAttr = clickable ? ` href="#/course/${m.id}"` : "";
+                        return `<${Tag} class="path-step path-step--${state}"${hrefAttr}>
+                          <span class="step-code">${escape(m.code || "")}</span>
+                          <span class="step-title">${escape(m.title)}</span>
+                          <span class="step-status">${m.locked ? "Locked" : moduleDone ? "Completed" : moduleStarted ? "In progress" : "Not started"}</span>
+                        </${Tag}>`;
+                      }).join("")}
+                    </ol>
+                    <div class="path-card-foot">
+                      <div class="path-progress">
+                        <div class="bar"><span style="width:${intPct}%"></span></div>
+                        <div class="pct">${intPct}% complete</div>
+                      </div>
+                      <a class="btn btn-primary" href="${intNext ? `#/course/${intNext.id}` : "#/"}">
+                        ${intCtaLabel}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                      </a>
+                    </div>
+                  </article>
+                `;
+              })()}
           ` : role ? `
             <article class="path-card">
               <div class="path-card-head">
