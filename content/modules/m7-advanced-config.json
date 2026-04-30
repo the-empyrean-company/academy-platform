@@ -1,0 +1,9 @@
+{
+  "id": "m7-advanced-config",
+  "code": "M7",
+  "title": "Advanced Configuration",
+  "description": "Surcharges, vehicle categories, tasks and conditional automation.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

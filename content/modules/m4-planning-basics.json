@@ -1,0 +1,9 @@
+{
+  "id": "m4-planning-basics",
+  "code": "M4",
+  "title": "Planning Basics",
+  "description": "Running the planning board and allocating drivers and vehicles.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

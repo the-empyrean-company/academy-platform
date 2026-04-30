@@ -1,0 +1,9 @@
+{
+  "id": "m2-order-entry",
+  "code": "M2",
+  "title": "Order Entry",
+  "description": "Daily workflow for the team creating and managing transport orders.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

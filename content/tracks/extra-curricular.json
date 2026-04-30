@@ -1,0 +1,11 @@
+{
+  "id": "extra-curricular",
+  "title": "Extra-curricular modules",
+  "description": "Topics that sit alongside the Qargo product but matter to the role. Optional, in any order.",
+  "modules": [
+    "ec-gdpr",
+    "ec-its",
+    "ec-ai-literacy",
+    "ec-efti"
+  ]
+}

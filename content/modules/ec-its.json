@@ -1,0 +1,8 @@
+{
+  "id": "ec-its",
+  "title": "ITS",
+  "description": "Intelligent Transport Systems fundamentals and how they connect to Qargo.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

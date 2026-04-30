@@ -1,0 +1,14 @@
+{
+  "id": "specialised",
+  "title": "Specialised modules",
+  "description": "Network and product specialisations. Each is its own module track, picked up after the first mile.",
+  "modules": [
+    "sp-palletline",
+    "sp-palletforce",
+    "sp-upn",
+    "sp-pallex-fortec",
+    "sp-hachzem",
+    "sp-tpn",
+    "sp-qargo-intel"
+  ]
+}

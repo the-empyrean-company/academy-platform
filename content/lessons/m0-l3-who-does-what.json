@@ -1,0 +1,40 @@
+{
+  "id": "m0-l3-who-does-what",
+  "title": "Who does what",
+  "blocks": [
+    {
+      "type": "text",
+      "title": "How different roles interact with the same data",
+      "lead": "Planning, CS, finance and admin all work on the same data, just from different angles.",
+      "body": "A planner opens the Planning Board. They drag stops into trips, assign drivers, resolve conflicts. A Customer Service colleague lives in the Order List and the Order Detail view, updating deadlines and responding to customers. Finance work from the Invoicing screen, running billing rounds and issuing credit notes. A Super Admin touches configuration: rate cards, master data, document templates. No single team owns an order from start to finish. They all touch it at different stages."
+    },
+    {
+      "type": "accordion",
+      "title": "A day in the life",
+      "intro": "Expand a role to see the screens they start with and the handoffs they rely on.",
+      "items": [
+        { "q": "Planner",      "a": "Starts from the Planning Board, resolves overnight changes, rolls tomorrow's plan. Relies on CS to keep order changes up to date." },
+        { "q": "Customer Services", "a": "Inbox first, then the Order List. Updates ETAs, confirms pickups, escalates changes to planning so the board stays accurate." },
+        { "q": "Finance",      "a": "Runs invoicing once PODs are in. Spots missing surcharges, issues credit notes, closes the week." },
+        { "q": "Super Admin",  "a": "Mostly in Admin. Configures rate cards, master data and templates. Changes ripple everywhere, so small tweaks get tested first." }
+      ]
+    },
+    {
+      "type": "summary",
+      "title": "Key takeaways",
+      "points": [
+        "One order, four viewpoints.",
+        "Field ownership matters: don't let finance change what CS owns mid-flight.",
+        "Knowing the other roles' needs prevents silent data conflicts."
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Quick check",
+      "question": "Who primarily owns the Planning Board?",
+      "options": ["Customer Services", "The Planner", "Finance", "The driver"],
+      "correct": 1,
+      "explanation": "Planners own dispatch. CS feeds them order changes, finance receives the completed trips for invoicing."
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "version": "2026-04-30-1",
+  "paths": ["super-admin-first-mile"],
+  "tracks": ["specialised", "extra-curricular"],
+  "modules": [
+    "m0-logic-of-qargo",
+    "m1-essential-setup",
+    "m2-order-entry",
+    "m3-stops-and-trips",
+    "m4-planning-basics",
+    "m5-finance-invoicing",
+    "m6-rate-cards",
+    "m7-advanced-config",
+    "m8-reporting-exports",
+    "m9-document-templates",
+    "sp-palletline",
+    "sp-palletforce",
+    "sp-upn",
+    "sp-pallex-fortec",
+    "sp-hachzem",
+    "sp-tpn",
+    "sp-qargo-intel",
+    "ec-gdpr",
+    "ec-its",
+    "ec-ai-literacy",
+    "ec-efti"
+  ],
+  "lessons": [
+    "m0-l1-welcome",
+    "m0-l2-core-objects",
+    "m0-l3-who-does-what",
+    "m0-l4-six-areas",
+    "m0-l5-wrap-up"
+  ]
+}

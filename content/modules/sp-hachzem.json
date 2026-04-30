@@ -1,0 +1,8 @@
+{
+  "id": "sp-hachzem",
+  "title": "Hachzem",
+  "description": "Hachzem-specific order flows and integration requirements.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

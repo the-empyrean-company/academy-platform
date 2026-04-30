@@ -1,0 +1,8 @@
+{
+  "id": "sp-upn",
+  "title": "UPN",
+  "description": "UPN-specific workflows, labels and reporting conventions.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

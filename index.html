@@ -3054,323 +3054,121 @@
 
   /* =========================================================================
      LEARNING PATH, MODULES AND EXTRAS
-     The Super Admin onboarding journey. M0 is the only playable module
-     right now. M1..M9 are listed so the full path is visible but they
-     are locked until content is built. SPECIALISED_MODULES and
-     EXTRA_CURRICULAR show up separately on the homepage and are not
-     clickable in this phase. Source:
-     https://www.notion.so/qargo/336e32e8f8c88041b155de9243e48980
+     Content is loaded at runtime from the /content tree. See LOADER.md for
+     the file shapes and the manifest versioning contract. The values below
+     are filled in by loadContent() before the router boots; everything
+     downstream reads these bindings as if the data were inline.
+     Source: https://www.notion.so/qargo/336e32e8f8c88041b155de9243e48980
      ========================================================================= */
-  const MODULES = [
-    {
-      id: "m0-logic-of-qargo",
-      code: "M0",
-      title: "The Logic of Qargo",
-      description: "Orientation. Builds the mental model before you touch anything.",
-      roles: ["super_admin"],
-      locked: false,
-      lessons: [
-        {
-          id: "m0-l1-welcome",
-          title: "Welcome to Qargo",
-          blocks: [
-            {
-              type: "text",
-              title: "What Qargo is and why it works the way it does",
-              lead: "Welcome to Qargo. Before you touch any screen, it helps to know what the system is doing in the background.",
-              body: "Qargo is a Transport Management System built around how transport actually operates. Instead of forcing a workflow on you, it follows the chain your operation already runs: a customer requests a move, the move is broken into physical events at specific addresses, and those events are grouped into something a driver can execute. Knowing this chain before you open any screen is what makes the rest of the app click into place."
-            },
-            {
-              type: "accordion",
-              title: "Quick glossary",
-              intro: "Four terms you'll hear every day. Expand any row for a one-line definition.",
-              items: [
-                { q: "Order",     a: "The commercial promise. What the customer asked for and what they agreed to pay." },
-                { q: "Stop",      a: "A physical event. One pickup or one delivery, at one address, in a time window." },
-                { q: "Trip",      a: "A driver's route. A vehicle, a driver and the stops they'll visit in sequence." },
-                { q: "Rate card", a: "The pricing engine. Customer-specific rules that turn orders into invoice lines." }
-              ]
-            },
-            {
-              type: "embed",
-              title: "See Qargo in action",
-              kind: "Interactive demo",
-              url: "https://qargo.storylane.io/share/platform-page-product-tour",
-              caption: "A short guided tour of the Qargo platform. Click through the steps, then come back to finish the lesson.",
-              ratio: "16 / 9"
-            },
-            {
-              type: "summary",
-              title: "Key takeaways",
-              points: [
-                "Qargo mirrors the real-world chain: Order, then Stop, then Trip.",
-                "The system's job is to reflect your operation, not rewrite it.",
-                "Orders, Stops, Trips and Rate Cards are the foundation you'll keep returning to."
-              ]
-            },
-            {
-              type: "quiz",
-              title: "Quick check",
-              question: "What does an Order capture in Qargo?",
-              options: [
-                "The driver's route and vehicle",
-                "The commercial promise made to the customer",
-                "A single pickup or delivery event",
-                "The fuel surcharge applied to a load"
-              ],
-              correct: 1,
-              explanation: "Orders capture the agreement with the customer. Stops are physical events, Trips are how drivers execute them."
-            }
-          ]
-        },
-        {
-          id: "m0-l2-core-objects",
-          title: "The four core objects",
-          blocks: [
-            {
-              type: "text",
-              title: "Orders, Stops, Trips and Rate Cards",
-              lead: "Every action you take in Qargo touches one of four core objects. If you can name them, you can navigate anywhere.",
-              body: "Orders capture the commercial promise: the customer, the consignment, the agreed pricing logic, the deadlines. Stops are the physical events: one pickup at one location, one delivery at another, each with a time window. Trips group stops into something a driver can actually execute, with a vehicle and a driver attached. Rate Cards are where customer-specific pricing rules live, feeding the invoicing engine. The flow is linear but not rigid: one order can produce several trips, and one trip can serve many orders."
-            },
-            {
-              type: "flipcard",
-              title: "Who owns what",
-              intro: "Flip each card to see who owns the object and what it captures.",
-              cards: [
-                { front: "Order",     back: "Owned by CS. Captures the commercial promise with the customer." },
-                { front: "Stop",      back: "Derived from orders. Captures one pickup or delivery event." },
-                { front: "Trip",      back: "Owned by planners. Groups stops a driver will execute in sequence." },
-                { front: "Rate card", back: "Owned by finance. Turns orders into priced invoice lines." }
-              ]
-            },
-            {
-              type: "match",
-              title: "Match the field to the object",
-              pairs: [
-                { term: "Pickup time window", definition: "Stop" },
-                { term: "Customer reference", definition: "Order" },
-                { term: "Vehicle and driver", definition: "Trip" },
-                { term: "Price per pallet",   definition: "Rate card" }
-              ]
-            },
-            {
-              type: "summary",
-              title: "Key takeaways",
-              points: [
-                "Four objects, each with a clear job.",
-                "Remember the order: Orders, Stops, Trips, Rate Cards.",
-                "If you can't find a field, you're probably looking at the wrong object."
-              ]
-            },
-            {
-              type: "quiz",
-              title: "Quick check",
-              question: "Where does the driver and vehicle information live?",
-              options: ["On the Order", "On the Stop", "On the Trip", "On the Rate card"],
-              correct: 2,
-              explanation: "The Trip is the execution layer. It carries the driver, the vehicle and the sequence of stops."
-            }
-          ]
-        },
-        {
-          id: "m0-l3-who-does-what",
-          title: "Who does what",
-          blocks: [
-            {
-              type: "text",
-              title: "How different roles interact with the same data",
-              lead: "Planning, CS, finance and admin all work on the same data, just from different angles.",
-              body: "A planner opens the Planning Board. They drag stops into trips, assign drivers, resolve conflicts. A Customer Service colleague lives in the Order List and the Order Detail view, updating deadlines and responding to customers. Finance work from the Invoicing screen, running billing rounds and issuing credit notes. A Super Admin touches configuration: rate cards, master data, document templates. No single team owns an order from start to finish. They all touch it at different stages."
-            },
-            {
-              type: "accordion",
-              title: "A day in the life",
-              intro: "Expand a role to see the screens they start with and the handoffs they rely on.",
-              items: [
-                { q: "Planner",      a: "Starts from the Planning Board, resolves overnight changes, rolls tomorrow's plan. Relies on CS to keep order changes up to date." },
-                { q: "Customer Services", a: "Inbox first, then the Order List. Updates ETAs, confirms pickups, escalates changes to planning so the board stays accurate." },
-                { q: "Finance",      a: "Runs invoicing once PODs are in. Spots missing surcharges, issues credit notes, closes the week." },
-                { q: "Super Admin",  a: "Mostly in Admin. Configures rate cards, master data and templates. Changes ripple everywhere, so small tweaks get tested first." }
-              ]
-            },
-            {
-              type: "summary",
-              title: "Key takeaways",
-              points: [
-                "One order, four viewpoints.",
-                "Field ownership matters: don't let finance change what CS owns mid-flight.",
-                "Knowing the other roles' needs prevents silent data conflicts."
-              ]
-            },
-            {
-              type: "quiz",
-              title: "Quick check",
-              question: "Who primarily owns the Planning Board?",
-              options: ["Customer Services", "The Planner", "Finance", "The driver"],
-              correct: 1,
-              explanation: "Planners own dispatch. CS feeds them order changes, finance receives the completed trips for invoicing."
-            }
-          ]
-        },
-        {
-          id: "m0-l4-six-areas",
-          title: "Six areas of the interface",
-          blocks: [
-            {
-              type: "text",
-              title: "The six places you'll spend your time",
-              lead: "When a colleague asks 'where do I do X in Qargo?' the answer is almost always one of six screens.",
-              body: "Qargo's app is organised into six main areas. Orders holds the list, filters and order detail pages. Planning is the planning board and trip detail. Finance covers invoicing and credit notes. Reports contains exports and dashboards. Admin is configuration: rate cards, master data, document templates. Profile is where you switch user, language and access settings. Everything else is a sub-view of one of these six. Learning to orient yourself here shaves the most time off onboarding."
-            },
-            {
-              type: "match",
-              title: "Where do I do this?",
-              pairs: [
-                { term: "Run today's invoicing",        definition: "Finance" },
-                { term: "Drag a stop onto a trip",      definition: "Planning" },
-                { term: "Create a new customer record", definition: "Admin" },
-                { term: "Export all trips for the month", definition: "Reports" },
-                { term: "Update a delivery time window", definition: "Orders" }
-              ]
-            },
-            {
-              type: "embed",
-              title: "Take a guided tour",
-              kind: "Interactive demo",
-              url: "https://app.storylane.io/share/embed/preview",
-              caption: "Click through the guided tour of the six areas, then come back to finish the lesson.",
-              ratio: "16 / 9"
-            },
-            {
-              type: "summary",
-              title: "Key takeaways",
-              points: [
-                "Six areas: Orders, Planning, Finance, Reports, Admin, Profile.",
-                "Nine times out of ten, the answer to 'where do I do X?' is one of these.",
-                "The interface rewards keyboard shortcuts: five minutes spent learning them pays back daily."
-              ]
-            },
-            {
-              type: "quiz",
-              title: "Quick check",
-              question: "Where would you create a new rate card?",
-              options: ["Orders", "Planning", "Finance", "Admin"],
-              correct: 3,
-              explanation: "Rate cards live in Admin because they're configuration. Finance uses them every day, but Admin is where they're set up."
-            }
-          ]
-        },
-        {
-          id: "m0-l5-wrap-up",
-          title: "Wrap-up and what's next",
-          blocks: [
-            {
-              type: "text",
-              title: "You've just laid the foundation",
-              lead: "That's Module 0. Nice work. Before you move on, a quick recap of what you now know and what's coming.",
-              body: "You can explain what Qargo is and why it's organised the way it is. You can name the four core objects and describe who owns each one. You know how CS, planning, finance and admin coordinate around the same data. And you know the six interface areas to orient any task. The rest of the learning path builds on this foundation. Module 1 walks you through Essential Setup: the baseline configuration every Qargo instance needs before it's usable."
-            },
-            {
-              type: "embed",
-              title: "A welcome from the Academy team",
-              kind: "Video",
-              url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-              caption: "A short welcome video. About 90 seconds.",
-              ratio: "16 / 9"
-            },
-            {
-              type: "summary",
-              title: "Where you are now",
-              points: [
-                "You understand Qargo's mental model.",
-                "You can name the four objects and the six areas.",
-                "Module 1 will start you configuring your real setup."
-              ]
-            },
-            {
-              type: "quiz",
-              title: "Quick check",
-              question: "What comes after Module 0 on the learning path?",
-              options: [
-                "M1 Essential Setup",
-                "M6 Rate Cards",
-                "M8 Reporting and Exports",
-                "You're done"
-              ],
-              correct: 0,
-              explanation: "Module 1 Essential Setup is next. It translates the mental model you just built into real configuration choices."
-            }
-          ]
-        }
-      ]
-    },
-    { id: "m1-essential-setup",    code: "M1", title: "Essential Setup",
-      description: "The baseline configuration every Qargo instance needs before day one.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m2-order-entry",        code: "M2", title: "Order Entry",
-      description: "Daily workflow for the team creating and managing transport orders.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m3-stops-and-trips",    code: "M3", title: "Stops and Trips",
-      description: "How orders translate into executable transport tasks.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m4-planning-basics",    code: "M4", title: "Planning Basics",
-      description: "Running the planning board and allocating drivers and vehicles.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m5-finance-invoicing",  code: "M5", title: "Finance and Invoicing",
-      description: "Invoicing runs, credit notes, approvals and common errors.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m6-rate-cards",         code: "M6", title: "Rate Cards",
-      description: "The pricing engine. Transport charges, calculation tables and year-start updates.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m7-advanced-config",    code: "M7", title: "Advanced Configuration",
-      description: "Surcharges, vehicle categories, tasks and conditional automation.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m8-reporting-exports",  code: "M8", title: "Reporting and Exports",
-      description: "Getting the right data out for analysis, compliance and customer billing.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-    { id: "m9-document-templates", code: "M9", title: "Document Templates",
-      description: "CMRs, delivery notes and proof-of-delivery layouts. Handlebar expressions explained.",
-      roles: ["super_admin"], locked: true, blocks: [] },
-  ];
+  let MODULES = [];
+  let LEARNING_PATH = { id: "", title: "", description: "", modules: MODULES };
+  let SPECIALISED_MODULES = [];
+  let EXTRA_CURRICULAR = [];
+  let COURSES = MODULES;
 
-  const LEARNING_PATH = {
-    id: "super-admin-first-mile",
-    title: "The first mile: all aboard Qargo",
-    description: "The full Super Admin onboarding journey. Ten modules, from the logic of Qargo to building your first document templates.",
-    modules: MODULES,
-  };
+  const CONTENT_BASE = "content";
+  const LS_CONTENT_CACHE = "academy.content_cache";
 
-  const SPECIALISED_MODULES = [
-    { id: "sp-palletline",    title: "Palletline",
-      description: "Network-specific setup, consignment rules and hub flows for Palletline members." },
-    { id: "sp-palletforce",   title: "Palletforce",
-      description: "Palletforce trunking, hub operations and consignment requirements." },
-    { id: "sp-upn",           title: "UPN",
-      description: "UPN-specific workflows, labels and reporting conventions." },
-    { id: "sp-pallex-fortec", title: "Pall-Ex / Fortec",
-      description: "Pall-Ex and Fortec network configuration, consignments and manifesting." },
-    { id: "sp-hachzem",       title: "Hachzem",
-      description: "Hachzem-specific order flows and integration requirements." },
-    { id: "sp-tpn",           title: "TPN",
-      description: "TPN hub processes, labels and member-to-member movements." },
-    { id: "sp-qargo-intel",   title: "Qargo Intelligence",
-      description: "Dashboards, saved reports and the analytics layer of Qargo." },
-  ];
+  async function fetchJSON(url) {
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) throw new Error("Failed to fetch " + url + " (" + res.status + ")");
+    return res.json();
+  }
 
-  const EXTRA_CURRICULAR = [
-    { id: "ec-gdpr",        title: "GDPR",
-      description: "Data protection principles for transport and logistics teams." },
-    { id: "ec-its",         title: "ITS",
-      description: "Intelligent Transport Systems fundamentals and how they connect to Qargo." },
-    { id: "ec-ai-literacy", title: "AI Literacy",
-      description: "Working safely and usefully with AI tools in a logistics context." },
-    { id: "ec-efti",        title: "eFTI Regulation",
-      description: "Electronic Freight Transport Information: what it means and how to prepare." },
-  ];
+  function readContentCache(version) {
+    try {
+      const raw = localStorage.getItem(LS_CONTENT_CACHE);
+      if (!raw) return null;
+      const cached = JSON.parse(raw);
+      if (!cached || cached.version !== version) return null;
+      return cached.bundle || null;
+    } catch { return null; }
+  }
+  function writeContentCache(version, bundle) {
+    try {
+      localStorage.setItem(LS_CONTENT_CACHE, JSON.stringify({ version, bundle }));
+    } catch (e) { /* quota or disabled — non-fatal */ }
+  }
 
-  // Alias so existing helpers that look up a module by id keep working.
-  const COURSES = MODULES;
+  async function fetchBundle(manifest) {
+    const [paths, tracks, modules, lessons] = await Promise.all([
+      Promise.all(manifest.paths.map(id => fetchJSON(`${CONTENT_BASE}/paths/${id}.json`))),
+      Promise.all(manifest.tracks.map(id => fetchJSON(`${CONTENT_BASE}/tracks/${id}.json`))),
+      Promise.all(manifest.modules.map(id => fetchJSON(`${CONTENT_BASE}/modules/${id}.json`))),
+      Promise.all(manifest.lessons.map(id => fetchJSON(`${CONTENT_BASE}/lessons/${id}.json`))),
+    ]);
+    return { paths, tracks, modules, lessons };
+  }
+
+  function assembleContent(bundle) {
+    const lessonById = Object.fromEntries(bundle.lessons.map(l => [l.id, l]));
+    const moduleById = Object.fromEntries(bundle.modules.map(m => {
+      // Resolve lesson ID references into full lesson objects. Modules with
+      // no lesson IDs (locked stubs) keep an empty array.
+      const resolved = (m.lessons || []).map(id => {
+        const lesson = lessonById[id];
+        if (!lesson) console.warn("[content] lesson not found:", id);
+        return lesson;
+      }).filter(Boolean);
+      return [m.id, { ...m, lessons: resolved }];
+    }));
+
+    // Path: take the first one. The platform currently boots a single path.
+    const pathFile = bundle.paths[0];
+    const orderedModules = (pathFile.modules || []).map(id => {
+      const mod = moduleById[id];
+      if (!mod) console.warn("[content] module not found in path:", id);
+      return mod;
+    }).filter(Boolean);
+
+    // Tracks: resolve module IDs into the same trimmed shape the old
+    // SPECIALISED_MODULES / EXTRA_CURRICULAR arrays had (id/title/description).
+    const trackById = Object.fromEntries(bundle.tracks.map(t => [t.id, t]));
+    const resolveTrack = (trackId) => {
+      const t = trackById[trackId];
+      if (!t) return [];
+      return (t.modules || []).map(id => {
+        const mod = moduleById[id];
+        if (!mod) { console.warn("[content] module not found in track:", id); return null; }
+        return { id: mod.id, title: mod.title, description: mod.description };
+      }).filter(Boolean);
+    };
+
+    return {
+      modules: orderedModules,
+      learningPath: {
+        id: pathFile.id,
+        title: pathFile.title,
+        description: pathFile.description,
+        modules: orderedModules,
+      },
+      specialised: resolveTrack("specialised"),
+      extraCurricular: resolveTrack("extra-curricular"),
+    };
+  }
+
+  async function loadContent() {
+    const manifest = await fetchJSON(`${CONTENT_BASE}/manifest.json`);
+    let bundle = readContentCache(manifest.version);
+    if (!bundle) {
+      bundle = await fetchBundle(manifest);
+      writeContentCache(manifest.version, bundle);
+    }
+    const built = assembleContent(bundle);
+    // Mutate in place where possible so any closures that captured the
+    // original array references stay live.
+    MODULES.length = 0;
+    built.modules.forEach(m => MODULES.push(m));
+    Object.assign(LEARNING_PATH, built.learningPath);
+    LEARNING_PATH.modules = MODULES;
+    SPECIALISED_MODULES.length = 0;
+    built.specialised.forEach(t => SPECIALISED_MODULES.push(t));
+    EXTRA_CURRICULAR.length = 0;
+    built.extraCurricular.forEach(t => EXTRA_CURRICULAR.push(t));
+    // COURSES is an alias for MODULES, kept in sync via the same array.
+    COURSES = MODULES;
+  }
+
 
   /* =========================================================================
      LEARNER IDENTITY + REPORTING
@@ -6468,8 +6266,27 @@ ${lessonBody || "(no additional context provided)"}`
   // For returning learners, fire immediately. Each call also refreshes
   // Country (from Cloudflare's request.cf) and bumps Login count.
   const startSession = () => { try { reportSessionStart(); } catch (e) {} };
-  if (!_l || !_l.role) showIdentityModal(() => { startSession(); route(); });
-  else { startSession(); route(); }
+
+  // Boot: load content from /content before the router runs. Errors here
+  // are fatal (no catalog without modules), so render a friendly message.
+  (async function boot() {
+    try {
+      await loadContent();
+      // Re-render the avatar/menu now that content is available — the first
+      // call ran before MODULES existed, so isPathComplete() returned false
+      // even for learners who had finished the path.
+      renderMe();
+    } catch (err) {
+      console.error("[content] failed to load:", err);
+      const appEl = document.getElementById("app");
+      if (appEl) {
+        appEl.innerHTML = `<section class="catalog"><h1 style="margin-top:48px">Content failed to load</h1><p style="max-width:560px">The Academy could not fetch its lessons. Please refresh the page. If the problem continues, share this error with the Academy team:</p><pre style="background:#F2F4F7;padding:12px;border-radius:8px;white-space:pre-wrap;max-width:720px">${String(err && err.message || err)}</pre></section>`;
+      }
+      return;
+    }
+    if (!_l || !_l.role) showIdentityModal(() => { startSession(); route(); });
+    else { startSession(); route(); }
+  })();
   </script>
 </body>
 </html>

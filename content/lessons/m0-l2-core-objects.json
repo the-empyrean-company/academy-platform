@@ -1,0 +1,50 @@
+{
+  "id": "m0-l2-core-objects",
+  "title": "The four core objects",
+  "blocks": [
+    {
+      "type": "text",
+      "title": "Orders, Stops, Trips and Rate Cards",
+      "lead": "Every action you take in Qargo touches one of four core objects. If you can name them, you can navigate anywhere.",
+      "body": "Orders capture the commercial promise: the customer, the consignment, the agreed pricing logic, the deadlines. Stops are the physical events: one pickup at one location, one delivery at another, each with a time window. Trips group stops into something a driver can actually execute, with a vehicle and a driver attached. Rate Cards are where customer-specific pricing rules live, feeding the invoicing engine. The flow is linear but not rigid: one order can produce several trips, and one trip can serve many orders."
+    },
+    {
+      "type": "flipcard",
+      "title": "Who owns what",
+      "intro": "Flip each card to see who owns the object and what it captures.",
+      "cards": [
+        { "front": "Order",     "back": "Owned by CS. Captures the commercial promise with the customer." },
+        { "front": "Stop",      "back": "Derived from orders. Captures one pickup or delivery event." },
+        { "front": "Trip",      "back": "Owned by planners. Groups stops a driver will execute in sequence." },
+        { "front": "Rate card", "back": "Owned by finance. Turns orders into priced invoice lines." }
+      ]
+    },
+    {
+      "type": "match",
+      "title": "Match the field to the object",
+      "pairs": [
+        { "term": "Pickup time window", "definition": "Stop" },
+        { "term": "Customer reference", "definition": "Order" },
+        { "term": "Vehicle and driver", "definition": "Trip" },
+        { "term": "Price per pallet",   "definition": "Rate card" }
+      ]
+    },
+    {
+      "type": "summary",
+      "title": "Key takeaways",
+      "points": [
+        "Four objects, each with a clear job.",
+        "Remember the order: Orders, Stops, Trips, Rate Cards.",
+        "If you can't find a field, you're probably looking at the wrong object."
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Quick check",
+      "question": "Where does the driver and vehicle information live?",
+      "options": ["On the Order", "On the Stop", "On the Trip", "On the Rate card"],
+      "correct": 2,
+      "explanation": "The Trip is the execution layer. It carries the driver, the vehicle and the sequence of stops."
+    }
+  ]
+}

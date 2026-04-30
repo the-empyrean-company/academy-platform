@@ -2,3 +2,5 @@
 .vscode/
 .idea/
 *.log
+.wrangler/
+serve.command

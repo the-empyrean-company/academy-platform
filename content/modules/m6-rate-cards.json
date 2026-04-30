@@ -1,0 +1,9 @@
+{
+  "id": "m6-rate-cards",
+  "code": "M6",
+  "title": "Rate Cards",
+  "description": "The pricing engine. Transport charges, calculation tables and year-start updates.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}
