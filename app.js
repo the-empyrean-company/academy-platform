@@ -762,6 +762,10 @@ function renderMe() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           Open block library
         </a>
+        <a class="menu-item" href="${escape(PRIVACY_NOTICE_URL)}" target="_blank" rel="noopener" data-act="close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          Privacy notice
+        </a>
       </div>
     </div>
   `;
@@ -3621,6 +3625,240 @@ const _l = getLearner();
 // Country (from Cloudflare's request.cf) and bumps Login count.
 const startSession = () => { try { reportSessionStart(); } catch (e) {} };
 
+/* =========================================================================
+   NOTIFICATIONS
+   The header bell opens a popover listing categorised notifications. Three
+   categories, each with its own icon and accent colour so a learner can
+   tell at a glance what kind of update they are looking at:
+
+     feature   - "New feature" updates to the Academy / Worker / platform
+     academy   - Course content updates (new modules, paths, internal track)
+     general   - Everything else (maintenance, holidays, policy changes)
+
+   Notifications are defined inline below. To add a new one, push an object
+   to NOTIFICATIONS with a stable unique id, a category, a short title,
+   a one-line message, an ISO date, and an optional link (hash route or
+   external URL). Newest first by `at` field; the renderer sorts so order
+   in the array does not matter.
+
+   Read state persists in localStorage under LS_NOTIFICATIONS_READ as an
+   array of read ids. An unread count badge sits on the bell while there
+   are unread items; opening the popover does not auto-mark, but clicking
+   an individual notification does. Mark-all-read button clears the badge
+   without forcing the user to click each item. */
+
+const NOTIFICATIONS = [
+  {
+    id: "feature-sample-1",
+    category: "feature",
+    title: "Sample feature update",
+    message: "This is example copy for a feature notification. Edit or remove it by changing the NOTIFICATIONS array in app.js when you have a real announcement to make.",
+    at: "2026-05-02",
+    link: null,
+  },
+  {
+    id: "academy-2026-04-30-internal-track",
+    category: "academy",
+    title: "Internal track is live",
+    message: "Qargo staff can now access the Look-and-Feel module behind the shared password. Pick the Internal role in your profile to unlock it.",
+    at: "2026-04-30",
+    link: "#/",
+  },
+];
+
+const LS_NOTIFICATIONS_READ = "academy.notifications_read";
+
+const NOTIFICATION_CATEGORIES = {
+  feature: {
+    label: "New feature",
+    /* lightning bolt — "what's new" energy */
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+    className: "cat-feature",
+  },
+  academy: {
+    label: "Academy update",
+    /* graduation cap — content/curriculum */
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>`,
+    className: "cat-academy",
+  },
+  general: {
+    label: "Notice",
+    /* info circle — neutral */
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`,
+    className: "cat-general",
+  },
+};
+
+function getReadNotifications() {
+  try {
+    const raw = localStorage.getItem(LS_NOTIFICATIONS_READ);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+function markNotificationRead(id) {
+  try {
+    const read = getReadNotifications();
+    read.add(id);
+    localStorage.setItem(LS_NOTIFICATIONS_READ, JSON.stringify([...read]));
+  } catch (e) { /* localStorage unavailable, non-fatal */ }
+}
+function markAllNotificationsRead() {
+  try {
+    localStorage.setItem(
+      LS_NOTIFICATIONS_READ,
+      JSON.stringify(NOTIFICATIONS.map(n => n.id)),
+    );
+  } catch (e) {}
+}
+
+function unreadNotificationCount() {
+  const read = getReadNotifications();
+  return NOTIFICATIONS.filter(n => !read.has(n.id)).length;
+}
+
+function renderNotificationsBadge() {
+  const badge = document.getElementById("notif-badge");
+  if (!badge) return;
+  const count = unreadNotificationCount();
+  if (count === 0) {
+    badge.hidden = true;
+    badge.textContent = "";
+  } else {
+    badge.hidden = false;
+    badge.textContent = count > 9 ? "9+" : String(count);
+  }
+}
+
+/* Relative-time formatter: "today", "yesterday", "3 days ago", "2 weeks
+   ago", "Apr 12". Stays short so it fits the popover meta line. */
+function formatRelativeDate(iso) {
+  const then = new Date(iso);
+  if (isNaN(then.getTime())) return iso;
+  const now = new Date();
+  const days = Math.floor((now - then) / (1000 * 60 * 60 * 24));
+  if (days < 1) return "today";
+  if (days < 2) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 14) return "1 week ago";
+  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+  return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function renderNotificationsPopover() {
+  const existing = document.getElementById("notif-popover");
+  if (existing) existing.remove();
+  const read = getReadNotifications();
+  const items = [...NOTIFICATIONS].sort((a, b) => (b.at > a.at ? 1 : -1));
+  const pop = document.createElement("div");
+  pop.id = "notif-popover";
+  pop.className = "notif-popover";
+  pop.setAttribute("role", "menu");
+  pop.innerHTML = `
+    <div class="notif-popover-header">
+      <span class="title">Notifications</span>
+      <button type="button" class="link" id="notif-mark-all" ${unreadNotificationCount() === 0 ? "hidden" : ""}>Mark all as read</button>
+    </div>
+    <div class="notif-list">
+      ${items.length === 0 ? `<div class="notif-empty">Nothing new right now.</div>` : items.map(n => {
+        const cat = NOTIFICATION_CATEGORIES[n.category] || NOTIFICATION_CATEGORIES.general;
+        const isUnread = !read.has(n.id);
+        const tag = n.link ? "a" : "div";
+        const linkAttrs = n.link
+          ? `href="${escape(n.link)}"${n.link.startsWith("http") ? ' target="_blank" rel="noopener"' : ""}`
+          : "";
+        return `
+          <${tag} class="notif-item ${cat.className}${isUnread ? " unread" : ""}" data-notif-id="${escape(n.id)}" ${linkAttrs}>
+            <span class="notif-icon" aria-hidden="true">${cat.icon}</span>
+            <div class="notif-body">
+              <div class="notif-meta">
+                <span class="notif-cat">${escape(cat.label)}</span>
+                <span class="notif-dot" aria-hidden="true">·</span>
+                <span class="notif-time">${escape(formatRelativeDate(n.at))}</span>
+              </div>
+              <div class="notif-title">${escape(n.title)}</div>
+              <div class="notif-message">${escape(n.message)}</div>
+            </div>
+            ${isUnread ? `<span class="notif-unread-dot" aria-label="Unread"></span>` : ""}
+          </${tag}>
+        `;
+      }).join("")}
+    </div>
+  `;
+  document.body.appendChild(pop);
+
+  /* Position the popover under the bell. Computed at render time so it
+     survives header layout changes without hard-coded offsets. */
+  const btn = document.getElementById("notif-btn");
+  if (btn) {
+    const rect = btn.getBoundingClientRect();
+    pop.style.top = `${rect.bottom + 8}px`;
+    pop.style.right = `${window.innerWidth - rect.right}px`;
+  }
+
+  /* Item click: mark as read, then either let the link navigate (anchor)
+     or close the popover (div). */
+  pop.querySelectorAll(".notif-item").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-notif-id");
+      if (id) markNotificationRead(id);
+      renderNotificationsBadge();
+      // Let the link's default navigation happen on anchors; close the
+      // popover for non-link items so the click feels resolved.
+      if (el.tagName !== "A") closeNotificationsPopover();
+    });
+  });
+
+  const markAllBtn = document.getElementById("notif-mark-all");
+  if (markAllBtn) {
+    markAllBtn.addEventListener("click", () => {
+      markAllNotificationsRead();
+      renderNotificationsBadge();
+      renderNotificationsPopover(); // re-render so unread dots clear
+    });
+  }
+}
+
+function openNotificationsPopover() {
+  const btn = document.getElementById("notif-btn");
+  if (!btn) return;
+  btn.setAttribute("aria-expanded", "true");
+  renderNotificationsPopover();
+  setTimeout(() => {
+    document.addEventListener("click", notifOutsideListener);
+    document.addEventListener("keydown", notifEscListener);
+  }, 0);
+}
+function closeNotificationsPopover() {
+  const pop = document.getElementById("notif-popover");
+  if (pop) pop.remove();
+  const btn = document.getElementById("notif-btn");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  document.removeEventListener("click", notifOutsideListener);
+  document.removeEventListener("keydown", notifEscListener);
+}
+function notifOutsideListener(e) {
+  const pop = document.getElementById("notif-popover");
+  const btn = document.getElementById("notif-btn");
+  if (!pop || !btn) return;
+  if (!pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+    closeNotificationsPopover();
+  }
+}
+function notifEscListener(e) {
+  if (e.key === "Escape") closeNotificationsPopover();
+}
+
+function wireNotifications() {
+  const btn = document.getElementById("notif-btn");
+  if (!btn) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (document.getElementById("notif-popover")) closeNotificationsPopover();
+    else openNotificationsPopover();
+  });
+  renderNotificationsBadge();
+}
+
 // Boot: load content from /content before the router runs. Errors here
 // are fatal (no catalog without modules), so render a friendly message.
 (async function boot() {
@@ -3630,6 +3868,7 @@ const startSession = () => { try { reportSessionStart(); } catch (e) {} };
     // call ran before MODULES existed, so isPathComplete() returned false
     // even for learners who had finished the path.
     renderMe();
+    wireNotifications();
   } catch (err) {
     console.error("[content] failed to load:", err);
     const appEl = document.getElementById("app");
