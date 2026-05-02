@@ -73,7 +73,36 @@
  *    "internal:manifest.json" '{"version":"...","paths":[],...}'` etc.
  */
 
-const ALLOW_ORIGIN = "*"; // tighten to your domain once you deploy the site
+/* CORS allowlist. The Academy lives on GitHub Pages in production and on
+   localhost during dev; both need to POST events. Any Origin not in this
+   set gets PRIMARY_ORIGIN echoed back, which causes the browser's own CORS
+   check to fail. The Origin check on POST below is the second line of
+   defence for callers that bypass the browser entirely (curl, scripts).
+   Update PRIMARY_ORIGIN if the production hostname changes (e.g. moving
+   to a custom domain like academy.qargo.com). */
+const PRIMARY_ORIGIN = "https://the-empyrean-company.github.io";
+const ALLOWED_ORIGINS = new Set([
+  PRIMARY_ORIGIN,
+  "http://localhost:8000",
+  "http://127.0.0.1:8000",
+]);
+
+function pickOrigin(request) {
+  const origin = request?.headers?.get("origin") || "";
+  return ALLOWED_ORIGINS.has(origin) ? origin : PRIMARY_ORIGIN;
+}
+
+function isAllowedOrigin(request) {
+  const origin = request.headers.get("origin") || "";
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  // Fallback for non-browser callers that still set Referer (some scripts do).
+  // Pure curl/wget without --referer is rejected, which is the intent.
+  const ref = request.headers.get("referer") || "";
+  for (const allowed of ALLOWED_ORIGINS) {
+    if (ref.startsWith(allowed + "/")) return true;
+  }
+  return false;
+}
 
 /* Token lifetime for the Internal session. A week is long enough that staff
    are not constantly re-typing the password but short enough that a leaked
@@ -84,7 +113,7 @@ const INTERNAL_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
 
     const url = new URL(request.url);
@@ -92,6 +121,7 @@ export default {
 
     /* ---- Internal track routes ---------------------------------------- */
     if (path === "/auth/internal" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
       return handleInternalAuth(request, env);
     }
     if (path.startsWith("/internal/") && request.method === "GET") {
@@ -99,18 +129,26 @@ export default {
     }
 
     /* ---- Reporting routes (legacy /, accepts any path on POST) -------- */
-    // GET / — return all stored page_view + event rows for sync-visitors.js
+    // GET / — return all stored page_view + event rows for sync-visitors.js.
+    // Requires Authorization: Bearer <SYNC_TOKEN>; without it the response
+    // is 401 with no data, even though the URL itself is public.
     if (request.method === "GET") {
-      return handleGetVisits(env);
+      return handleGetVisits(request, env);
     }
 
     if (request.method !== "POST") {
-      return json({ error: "POST only" }, 405);
+      return json({ error: "POST only" }, 405, request);
     }
+
+    /* Origin check on writes. CORS already blocks browsers from other
+       origins, but a curl/script can ignore CORS entirely; this catches
+       those. The OPTIONS preflight above is unaffected: browsers send
+       OPTIONS before POST and we let them through to negotiate CORS. */
+    if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
 
     let payload;
     try { payload = await request.json(); }
-    catch { return json({ error: "invalid JSON" }, 400); }
+    catch { return json({ error: "invalid JSON" }, 400, request); }
 
     const eventRaw = payload?.event;
     // Backwards compat: old pages send "course_completed" for module-level finishes.
@@ -122,14 +160,14 @@ export default {
     }
 
     const allowed = new Set(["session_start", "lesson_completed", "module_completed", "path_completed"]);
-    if (!allowed.has(event)) return json({ error: "unknown event", got: eventRaw }, 400);
+    if (!allowed.has(event)) return json({ error: "unknown event", got: eventRaw }, 400, request);
 
     const learner = payload.learner || {};
     if (!learner.email || !learner.name) {
-      return json({ error: "learner.name and learner.email required" }, 400);
+      return json({ error: "learner.name and learner.email required" }, 400, request);
     }
     const email = String(learner.email).trim().toLowerCase();
-    if (!email.includes("@")) return json({ error: "invalid email" }, 400);
+    if (!email.includes("@")) return json({ error: "invalid email" }, 400, request);
 
     // Country comes from Cloudflare for free; no extra API call.
     const country =
@@ -164,7 +202,7 @@ export default {
       },
     });
 
-    return json({ ok: true, stored: true });
+    return json({ ok: true, stored: true }, 200, request);
   },
 };
 
@@ -198,12 +236,29 @@ async function handlePageView(request, env, payload) {
     await env.VISITS_KV.put(dateKey, JSON.stringify(existing));
   }
 
-  return json({ ok: true, logged: !!env.VISITS_KV });
+  return json({ ok: true, logged: !!env.VISITS_KV }, 200, request);
 }
 
-async function handleGetVisits(env) {
+async function handleGetVisits(request, env) {
+  /* Reading the visit/event corpus is sensitive: it contains every learner
+     email, name, role, and activity record. Gate it behind a shared token
+     stored as the SYNC_TOKEN secret on the worker. The only legitimate
+     caller is sync-visitors.js running on the operator's machine, which
+     reads the same token from the ACADEMY_SYNC_TOKEN env var.
+
+     If the secret isn't set, we return 503 rather than fall through to
+     "open". This is the same fail-closed pattern used for the Internal
+     auth routes. */
+  if (!env.SYNC_TOKEN) {
+    return json({ error: "sync auth not configured" }, 503, request);
+  }
+  const auth = request.headers.get("authorization") || "";
+  const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  if (!constantTimeEqual(token, env.SYNC_TOKEN)) {
+    return json({ error: "unauthorized" }, 401, request);
+  }
   if (!env.VISITS_KV) {
-    return json({ error: "VISITS_KV binding not configured" }, 503);
+    return json({ error: "VISITS_KV binding not configured" }, 503, request);
   }
 
   // Return both raw page views and learner events for the scheduled sync.
@@ -218,7 +273,7 @@ async function handleGetVisits(env) {
   return new Response(JSON.stringify({ visits, events }), {
     status: 200,
     headers: {
-      ...corsHeaders(),
+      ...corsHeaders(request),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
     },
@@ -316,32 +371,32 @@ async function verifyInternalToken(secret, token) {
 
 async function handleInternalAuth(request, env) {
   if (!env.INTERNAL_PASSWORD || !env.INTERNAL_JWT_SECRET) {
-    return json({ error: "internal auth not configured" }, 503);
+    return json({ error: "internal auth not configured" }, 503, request);
   }
   let payload;
   try { payload = await request.json(); }
-  catch { return json({ error: "invalid JSON" }, 400); }
+  catch { return json({ error: "invalid JSON" }, 400, request); }
   const password = String(payload?.password || "");
   if (!constantTimeEqual(password, env.INTERNAL_PASSWORD)) {
     // Generic message; do not leak whether the password was empty, too short, etc.
-    return json({ error: "invalid password" }, 401);
+    return json({ error: "invalid password" }, 401, request);
   }
   const exp = Math.floor(Date.now() / 1000) + INTERNAL_TOKEN_TTL_SECONDS;
   const token = await signInternalToken(env.INTERNAL_JWT_SECRET, { scope: "internal", exp });
-  return json({ token, expiresAt: new Date(exp * 1000).toISOString() });
+  return json({ token, expiresAt: new Date(exp * 1000).toISOString() }, 200, request);
 }
 
 async function handleInternalContent(request, env, path) {
   if (!env.INTERNAL_JWT_SECRET) {
-    return json({ error: "internal auth not configured" }, 503);
+    return json({ error: "internal auth not configured" }, 503, request);
   }
   if (!env.VISITS_KV) {
-    return json({ error: "KV binding missing" }, 503);
+    return json({ error: "KV binding missing" }, 503, request);
   }
   const auth = request.headers.get("authorization") || "";
   const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : null;
   const claims = token ? await verifyInternalToken(env.INTERNAL_JWT_SECRET, token) : null;
-  if (!claims) return json({ error: "unauthorized" }, 401);
+  if (!claims) return json({ error: "unauthorized" }, 401, request);
 
   /* Map URL -> KV key. The relative shape mirrors the public /content tree
      so the loader can use the same fetch logic for both. Examples:
@@ -351,35 +406,40 @@ async function handleInternalContent(request, env, path) {
      We allow only paths under /internal/ and reject any traversal. */
   const rel = path.replace(/^\/internal\//, "");
   if (!rel || rel.includes("..") || !/^[\w./-]+\.json$/.test(rel)) {
-    return json({ error: "bad request" }, 400);
+    return json({ error: "bad request" }, 400, request);
   }
   const kvKey = `internal:${rel}`;
   const value = await env.VISITS_KV.get(kvKey);
-  if (value === null) return json({ error: "not found", key: kvKey }, 404);
+  if (value === null) return json({ error: "not found", key: kvKey }, 404, request);
   return new Response(value, {
     status: 200,
     headers: {
-      ...corsHeaders(),
+      ...corsHeaders(request),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
     },
   });
 }
 
-function corsHeaders() {
+function corsHeaders(request) {
   return {
-    "Access-Control-Allow-Origin": ALLOW_ORIGIN,
+    "Access-Control-Allow-Origin": pickOrigin(request),
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     // Authorization is required so the browser can send the Internal token
-    // on cross-origin GET /internal/* requests from the static page.
+    // on cross-origin GET /internal/* requests from the static page, and
+    // so sync-visitors.js can send the SYNC_TOKEN on GET /.
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
+    /* Vary: Origin tells caches that the response depends on the Origin
+       header, so a cached "allow https://foo" doesn't get served back to
+       a request from https://bar. */
+    "Vary": "Origin",
   };
 }
 
-function json(obj, status = 200) {
+function json(obj, status = 200, request = null) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { ...corsHeaders(), "Content-Type": "application/json" },
+    headers: { ...corsHeaders(request), "Content-Type": "application/json" },
   });
 }

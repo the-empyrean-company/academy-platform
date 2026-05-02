@@ -10,7 +10,14 @@ binding = "VISITS_KV"
 id = "76667875558e45a4ae55057ea5599451"
 
 # ---------------------------------------------------------------------------
-# Internal track secrets (set via `wrangler secret put`, NOT committed here).
+# Worker secrets (set via `wrangler secret put`, NOT committed here).
+#
+#   wrangler secret put SYNC_TOKEN
+#       Shared token that gates GET / on the Worker. The endpoint dumps
+#       every learner email/name/event, so without this gate the URL is
+#       a public PII feed. sync-visitors.js reads the same token from the
+#       ACADEMY_SYNC_TOKEN env var and sends it as a Bearer header.
+#       Generate with `openssl rand -hex 32`. Rotate to invalidate.
 #
 #   wrangler secret put INTERNAL_PASSWORD
 #       Shared password staff type into the Academy when they pick the
@@ -22,7 +29,8 @@ id = "76667875558e45a4ae55057ea5599451"
 #       once with `openssl rand -hex 32` and never share it. If it leaks,
 #       rotate it and every existing token will stop verifying.
 #
-# Both are read by reporting-worker.js. If either secret is missing, the
-# /auth/internal and /internal/* routes return 503 instead of authenticating
-# anyone, so a half-configured Worker fails closed.
+# All three are read by reporting-worker.js. If a relevant secret is missing
+# the corresponding route returns 503 instead of falling open: GET / without
+# SYNC_TOKEN is 503, /auth/internal and /internal/* without their secrets
+# are 503. The Worker fails closed.
 # ---------------------------------------------------------------------------
