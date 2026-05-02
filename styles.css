@@ -1588,6 +1588,44 @@ button.ghost:hover { border-color: var(--brand-600); background: var(--brand-50)
 }
 .modal .error { color: var(--bad); font-size: 13px; margin-top: 12px; min-height: 18px; }
 .modal .actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+.modal .actions .primary[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Consent row inside the identity modal. Lives between the form fields
+   and the actions; checkbox unlocks the submit button. */
+.modal .consent-row {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.modal .consent-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-700);
+  cursor: pointer;
+  margin: 0;
+}
+.modal .consent-label input[type="checkbox"] {
+  flex: none;
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-600);
+  cursor: pointer;
+}
+.modal .consent-label a {
+  color: var(--brand-900);
+  text-decoration: underline;
+  text-decoration-color: var(--brand-600);
+  text-underline-offset: 2px;
+}
 
 /* Group headings inside catalog */
 .group-label {
