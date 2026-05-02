@@ -124,11 +124,30 @@ header .notif {
   cursor: pointer;
   box-shadow: var(--shadow-sm);
 }
-header .notif svg { width: 18px; height: 18px; }
+header .notif svg { width: 18px; height: 18px; transform-origin: center; }
 header .notif:hover { background: var(--surface-2); }
 header .notif[aria-expanded="true"] {
   background: var(--surface-2);
   border-color: var(--brand-600);
+}
+
+/* Bell pulse: only runs when there are unread items (.has-unread class is
+   added by renderNotificationsBadge). Pauses while the popover is open
+   (aria-expanded="true") since the learner is already looking at the
+   notifications. Subtle scale on the SVG itself keeps the animation
+   contained inside the button rather than disturbing surrounding chrome. */
+@keyframes notif-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
+header .notif.has-unread svg {
+  animation: notif-pulse 1.8s ease-in-out infinite;
+}
+header .notif.has-unread[aria-expanded="true"] svg {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  header .notif.has-unread svg { animation: none; }
 }
 /* Real unread badge: shows the count, hidden when count is 0. Replaces
    the old decorative always-on dot so the indicator now means something. */

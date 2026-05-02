@@ -3725,13 +3725,19 @@ function unreadNotificationCount() {
 function renderNotificationsBadge() {
   const badge = document.getElementById("notif-badge");
   if (!badge) return;
+  const btn = document.getElementById("notif-btn");
   const count = unreadNotificationCount();
   if (count === 0) {
     badge.hidden = true;
     badge.textContent = "";
+    btn?.classList.remove("has-unread");
   } else {
     badge.hidden = false;
     badge.textContent = count > 9 ? "9+" : String(count);
+    /* Class toggle drives the CSS pulse animation. Adding it here (rather
+       than purely from CSS based on badge[hidden]) keeps the animation
+       trigger explicit and easy to reason about. */
+    btn?.classList.add("has-unread");
   }
 }
 
