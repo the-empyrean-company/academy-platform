@@ -125,12 +125,184 @@ header .notif {
   box-shadow: var(--shadow-sm);
 }
 header .notif svg { width: 18px; height: 18px; }
-header .notif::after {
-  content: "";
-  position: absolute; top: 9px; right: 9px;
-  width: 8px; height: 8px; border-radius: 50%;
+header .notif:hover { background: var(--surface-2); }
+header .notif[aria-expanded="true"] {
+  background: var(--surface-2);
+  border-color: var(--brand-600);
+}
+/* Real unread badge: shows the count, hidden when count is 0. Replaces
+   the old decorative always-on dot so the indicator now means something. */
+header .notif .notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
   background: var(--brand-600);
+  color: var(--brand-900);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
   box-shadow: 0 0 0 2px var(--surface);
+  pointer-events: none;
+}
+header .notif .notif-badge[hidden] { display: none; }
+
+/* Notifications popover. Anchored to the bell at render time via inline
+   top/right values; styling here covers everything else. */
+.notif-popover {
+  position: fixed;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  overflow: hidden;
+  animation: notif-pop-in 0.15s ease-out;
+}
+@keyframes notif-pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.notif-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.notif-popover-header .title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--brand-900);
+}
+.notif-popover-header .link {
+  background: none;
+  border: none;
+  color: var(--brand-900);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--brand-600);
+  text-underline-offset: 3px;
+}
+.notif-popover-header .link[hidden] { display: none; }
+.notif-popover-header .link:hover { color: var(--brand-600); }
+
+.notif-list {
+  overflow-y: auto;
+  flex: 1;
+}
+.notif-empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-500);
+}
+
+/* One notification row. Three-column layout: category icon, body text,
+   unread dot. Anchor and div variants share styling — anchor adds the
+   click-to-navigate behaviour. */
+.notif-item {
+  display: grid;
+  grid-template-columns: 36px 1fr 12px;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.notif-item.unread { background: rgba(0, 232, 91, 0.04); }
+.notif-item.unread:hover { background: rgba(0, 232, 91, 0.07); }
+
+/* Category icon. The colour accent is what makes the type recognisable
+   at a glance without reading the label. */
+.notif-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.notif-icon svg { width: 18px; height: 18px; }
+.notif-item.cat-feature .notif-icon {
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+.notif-item.cat-academy .notif-icon {
+  background: rgba(99, 102, 241, 0.10);
+  color: rgb(79, 70, 229);
+}
+.notif-item.cat-general .notif-icon {
+  background: var(--surface-2);
+  color: var(--ink-500);
+}
+
+.notif-body { min-width: 0; }
+.notif-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+  margin-bottom: 4px;
+}
+.notif-meta .notif-cat { font-weight: 700; }
+.notif-item.cat-feature .notif-cat { color: var(--brand-600); }
+.notif-item.cat-academy .notif-cat { color: rgb(79, 70, 229); }
+.notif-item.cat-general .notif-cat { color: var(--ink-500); }
+.notif-meta .notif-dot { opacity: 0.6; }
+.notif-meta .notif-time { text-transform: none; letter-spacing: 0; }
+
+.notif-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-900);
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+.notif-message {
+  font-size: 13px;
+  color: var(--ink-700);
+  line-height: 1.5;
+}
+
+/* Small dot in the right column for unread state. Lined up with the
+   middle of the icon so it reads as a paired indicator. */
+.notif-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .notif-popover {
+    width: calc(100vw - 16px);
+    right: 8px !important;
+  }
 }
 
 main { max-width: 1200px; margin: 0 auto; padding: 40px 32px 80px; }
