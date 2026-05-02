@@ -24,3 +24,7 @@ skills/
 # Authoring reference used by the academy-builder skill. Same category as
 # skills/ above: local-only, not part of what the platform serves.
 LESSON_AUTHORING_INSTRUCTIONS.md
+
+# Reference copy of the prompt body for the academy-visitor-sync scheduled
+# task. Internal operational workflow, not something the public repo needs.
+academy-visitor-sync-updated-prompt.md
