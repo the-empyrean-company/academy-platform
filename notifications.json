@@ -1,0 +1,20 @@
+{
+  "notifications": [
+    {
+      "id": "feature-sample-1",
+      "category": "feature",
+      "title": "Sample feature update",
+      "message": "This is example copy for a feature notification. Edit or remove it by changing notifications.json when you have a real announcement to make.",
+      "at": "2026-05-02",
+      "link": null
+    },
+    {
+      "id": "academy-2026-04-30-internal-track",
+      "category": "academy",
+      "title": "Internal track is live",
+      "message": "Qargo staff can now access the Look-and-Feel module behind the shared password. Pick the Internal role in your profile to unlock it.",
+      "at": "2026-04-30",
+      "link": "#/"
+    }
+  ]
+}

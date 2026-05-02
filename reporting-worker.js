@@ -110,6 +110,19 @@ function isAllowedOrigin(request) {
    to invalidate everything sooner. */
 const INTERNAL_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
+/* Rate limit on /auth/internal. Per-IP, fixed-minute window. Five attempts
+   is well above what a legitimate staff member needs (one auth per session,
+   plus a typo or two) but cuts brute-force throughput from "thousands per
+   second" to "five per minute per IP". A determined attacker would have to
+   rotate IPs at scale, which is a different threat model.
+
+   KV is eventually consistent across edges, so a global botnet hitting many
+   POPs simultaneously could squeeze a few extra attempts through before the
+   counter propagates. For a small Academy this is acceptable; if it ever
+   matters, swap KV for a Durable Object that gives atomic counters. */
+const AUTH_RATE_LIMIT = 5;
+const AUTH_RATE_WINDOW_SECONDS = 60;
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -369,9 +382,46 @@ async function verifyInternalToken(secret, token) {
   return payload;
 }
 
+/* Per-IP rate limiter for the auth endpoint. Increments a KV counter keyed
+   by IP + minute window; rejects with 429 once the window's count reaches
+   AUTH_RATE_LIMIT. Counters auto-expire after 2x the window so KV doesn't
+   accumulate dead keys. */
+async function checkAuthRateLimit(request, env) {
+  if (!env.VISITS_KV) return { allowed: true }; // KV not bound; skip silently
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const window = Math.floor(Date.now() / 1000 / AUTH_RATE_WINDOW_SECONDS);
+  const key = `ratelimit:auth:${ip}:${window}`;
+  const current = parseInt((await env.VISITS_KV.get(key)) || "0", 10);
+  if (current >= AUTH_RATE_LIMIT) {
+    return { allowed: false, retryAfter: AUTH_RATE_WINDOW_SECONDS };
+  }
+  await env.VISITS_KV.put(key, String(current + 1), {
+    expirationTtl: AUTH_RATE_WINDOW_SECONDS * 2,
+  });
+  return { allowed: true };
+}
+
 async function handleInternalAuth(request, env) {
   if (!env.INTERNAL_PASSWORD || !env.INTERNAL_JWT_SECRET) {
     return json({ error: "internal auth not configured" }, 503, request);
+  }
+  /* Rate-check FIRST so failed attempts never reach the password compare.
+     A 429 here also means the worker did not even attempt to verify, which
+     is the right signal both for legit users (back off) and attackers (you
+     are throttled regardless of guess quality). */
+  const rl = await checkAuthRateLimit(request, env);
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: "too many attempts; try again in a minute" }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders(request),
+          "Content-Type": "application/json",
+          "Retry-After": String(rl.retryAfter),
+        },
+      },
+    );
   }
   let payload;
   try { payload = await request.json(); }
