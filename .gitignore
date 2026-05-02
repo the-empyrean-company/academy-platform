@@ -20,3 +20,7 @@ internal-content/
 # Local authoring tooling (academy-builder skill). Personal to the author,
 # not part of the deployable platform.
 skills/
+
+# Authoring reference used by the academy-builder skill. Same category as
+# skills/ above: local-only, not part of what the platform serves.
+LESSON_AUTHORING_INSTRUCTIONS.md

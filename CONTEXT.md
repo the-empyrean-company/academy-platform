@@ -157,6 +157,5 @@ skills/academy-builder/SKILL.md        — local authoring skill used to draft n
 
 CONTEXT.md                             — this file: platform architecture
 LOADER.md                              — how the runtime content loader fetches and assembles the tree
-LESSON_AUTHORING_INSTRUCTIONS.md       — guidance for authoring new lessons
 academy-visitor-sync-updated-prompt.md — reference copy of the prompt the visitor-sync scheduled task uses
 ```

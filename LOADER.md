@@ -1,6 +1,6 @@
 # Qargo Academy: content loader
 
-This document describes how lesson content is stored, fetched and assembled at runtime. It pairs with `CONTEXT.md` (which covers the platform itself) and `LESSON_AUTHORING_INSTRUCTIONS.md` (which covers how to author a lesson).
+This document describes how lesson content is stored, fetched and assembled at runtime. It pairs with `CONTEXT.md`, which covers the platform itself.
 
 ## 1. Why the split exists
 
@@ -107,7 +107,7 @@ Same shape as a path, but the platform treats it as a flat catalog group rather 
 }
 ```
 
-Block shapes are unchanged from the inline version. See `LESSON_AUTHORING_INSTRUCTIONS.md` section 3 for the full block reference.
+Block shapes are unchanged from the inline version. The canonical reference for each block type's required fields is the `renderBlock()` dispatcher and the per-type renderers in `index.html`; the live demo at `#/blocks` shows one working example of every type.
 
 ## 4. Loader contract (in `index.html`)
 
