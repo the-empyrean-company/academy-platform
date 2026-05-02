@@ -975,9 +975,15 @@ function showIdentityModal(onDone) {
           placeholder="Shared with Qargo staff" />
         <div class="role-hint">Required to unlock Internal modules. Ask your manager if you do not have it.</div>
       </div>
+      <div class="consent-row">
+        <label class="consent-label">
+          <input id="id-consent" type="checkbox" />
+          <span>I understand that the Academy will store my name, email, company, role, and learning activity to track progress and issue my certificate, processed under <a href="${escape(PRIVACY_NOTICE_URL)}" target="_blank" rel="noopener">Qargo's privacy notice</a>.</span>
+        </label>
+      </div>
       <div class="error" id="id-error"></div>
       <div class="actions">
-        <button class="primary" id="id-save">${isEdit ? "Save" : "Start learning"}</button>
+        <button class="primary" id="id-save" disabled>${isEdit ? "Save" : "Start learning"}</button>
       </div>
     </div>
   `;
@@ -1014,6 +1020,24 @@ function showIdentityModal(onDone) {
   roleEl.addEventListener("change", updateHint);
   emailEl.addEventListener("input", refreshRoleOptions);
   updateHint();
+  /* Consent gate. The "Start learning" / "Save" button starts disabled and
+     unlocks only when the consent box is checked. Re-running the modal
+     (switch profile) requires the box again, so a learner who didn't see
+     a previous version of this notice can't sail past it. We stamp the
+     accepted PRIVACY_VERSION into localStorage on submit, which lets us
+     detect if the notice changes and re-prompt later. */
+  const consentEl = document.getElementById("id-consent");
+  const stampedVersion = localStorage.getItem("academy.privacy_consent_version");
+  if (stampedVersion === PRIVACY_VERSION) {
+    // Returning user who already accepted the current notice: pre-tick the
+    // box so they only need to click Save. Switching the box off and on
+    // again is still allowed.
+    consentEl.checked = true;
+    saveBtn.disabled = false;
+  }
+  consentEl.addEventListener("change", () => {
+    saveBtn.disabled = !consentEl.checked;
+  });
   (isEdit ? roleEl : nameEl).focus();
   const submit = async () => {
     const name = document.getElementById("id-name").value.trim();
@@ -1061,6 +1085,12 @@ function showIdentityModal(onDone) {
       clearInternalToken();
     }
     setLearner({ name, email, company, role });
+    /* Stamp the accepted privacy notice version. Used on subsequent modal
+       opens to decide whether to re-prompt: if PRIVACY_VERSION advances,
+       the stored value won't match and the consent box will start
+       unchecked again. */
+    try { localStorage.setItem("academy.privacy_consent_version", PRIVACY_VERSION); }
+    catch (e) { /* localStorage unavailable, non-fatal */ }
     back.remove();
     if (onDone) onDone();
   };
@@ -2075,6 +2105,23 @@ function renderNotFound() {
   app.classList.remove("home-view");
   app.innerHTML = `<h1>Not found</h1><p class="lead">That course doesn't exist. <a href="#/">Back to catalog</a></p>`;
 }
+
+/* =========================================================================
+   PRIVACY CONSENT
+   The Academy operates under Qargo's master privacy notice at
+   PRIVACY_NOTICE_URL below. We don't ship a separate Academy-specific
+   notice — there's only one source of truth, and it lives on qargo.com.
+
+   Consent is captured in the identity modal: a checkbox that links to the
+   master notice, gating the "Start learning" / "Save" button. When the
+   learner ticks the box and submits, we stamp PRIVACY_VERSION into
+   localStorage so we can re-prompt later if Qargo updates the master
+   notice in a way that warrants fresh acceptance — bump PRIVACY_VERSION
+   here and every learner's stored consent will fall out of date,
+   forcing a re-tick on their next profile edit.
+   ========================================================================= */
+const PRIVACY_VERSION = "2026-05-02";
+const PRIVACY_NOTICE_URL = "https://www.qargo.com/privacy-notice/";
 
 /* =========================================================================
    BLOCK LIBRARY — /#blocks demo route
