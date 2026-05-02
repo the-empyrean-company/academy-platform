@@ -130,17 +130,33 @@ A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `in
 ## File layout
 
 ```
-index.html                    — shell, CSS, JS, runtime content loader
-content/                      — public lesson content, fetched at runtime
-  manifest.json                 version + ID lists for paths / tracks / modules / lessons
-  paths/<id>.json               { id, title, description, modules: [moduleId] }
-  tracks/<id>.json              { id, title, description, modules: [moduleId] }
-  modules/<id>.json             { id, code, title, description, roles, locked, lessons: [lessonId] }
-  lessons/<id>.json             { id, title, blocks: [...] }
-reporting-worker.js           — Cloudflare Worker: event reporting + Internal auth + gated Internal content
-wrangler.toml                 — Worker config + KV namespace binding + documented secrets
-sync-visitors.js              — pulls reporting events from the Worker into visitors.json
-visitors.json                 — generated visitor / event dump
-CONTEXT.md                    — this file
-LESSON_AUTHORING_INSTRUCTIONS.md — guidance for authoring new lessons
+README.md                              — entry point: what this is and how to run it
+index.html                             — shell, CSS, JS, runtime content loader
+serve.command                          — local dev server (python3 http.server on :8000)
+
+content/                               — public lesson content, fetched at runtime
+  manifest.json                          version + ID lists for paths / tracks / modules / lessons
+  paths/<id>.json                        { id, title, description, modules: [moduleId] }
+  tracks/<id>.json                       { id, title, description, modules: [moduleId] }
+  modules/<id>.json                      { id, code, title, description, roles, locked, lessons: [lessonId] }
+  lessons/<id>.json                      { id, title, blocks: [...] }
+
+internal-content/                      — gated Internal track content (gitignored; pushed to KV, not served from repo)
+  manifest.json                          same shape as content/manifest.json, scoped to Internal
+  tracks/internal.json                   the Internal track definition
+  modules/<id>.json                      Internal modules
+  lessons/<id>.json                      Internal lessons
+  push.sh                                bash script that uploads the tree to Cloudflare KV via wrangler
+
+reporting-worker.js                    — Cloudflare Worker: event reporting + Internal auth + gated Internal content
+wrangler.toml                          — Worker config + KV namespace binding + documented secrets
+sync-visitors.js                       — pulls reporting events from the Worker into visitors.json
+visitors.json                          — generated visitor / event dump (gitignored, local-only)
+
+skills/academy-builder/SKILL.md        — local authoring skill used to draft new lessons (gitignored)
+
+CONTEXT.md                             — this file: platform architecture
+LOADER.md                              — how the runtime content loader fetches and assembles the tree
+LESSON_AUTHORING_INSTRUCTIONS.md       — guidance for authoring new lessons
+academy-visitor-sync-updated-prompt.md — reference copy of the prompt the visitor-sync scheduled task uses
 ```

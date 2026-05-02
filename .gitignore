@@ -7,3 +7,16 @@ serve.command
 .dev.vars
 .dev.vars.*
 secrets.local.*
+
+# Local-only learner data: contains emails, names, and activity events. The
+# academy-visitor-sync scheduled task reads this file directly; the platform
+# itself never serves it. Keep it on disk, never in git history.
+visitors.json
+
+# Gated content for the Internal track. Pushed to Cloudflare KV via
+# internal-content/push.sh and served from the Worker, not from the repo.
+internal-content/
+
+# Local authoring tooling (academy-builder skill). Personal to the author,
+# not part of the deployable platform.
+skills/
