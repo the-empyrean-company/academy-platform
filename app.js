@@ -3635,11 +3635,16 @@ const startSession = () => { try { reportSessionStart(); } catch (e) {} };
      academy   - Course content updates (new modules, paths, internal track)
      general   - Everything else (maintenance, holidays, policy changes)
 
-   Notifications are defined inline below. To add a new one, push an object
-   to NOTIFICATIONS with a stable unique id, a category, a short title,
-   a one-line message, an ISO date, and an optional link (hash route or
-   external URL). Newest first by `at` field; the renderer sorts so order
-   in the array does not matter.
+   Notifications are loaded from notifications.json at boot. To add or edit
+   a notification, change that file and push it; no app.js change needed.
+   Each entry needs a stable unique id, a category, a short title, a
+   one-line message, an ISO date, and an optional link (hash route like
+   "#/" or an https URL). Newest first by `at` field; the renderer sorts
+   so order in the file does not matter.
+
+   The fetch is fail-safe: if notifications.json is missing or unreachable,
+   NOTIFICATIONS stays empty and the bell shows nothing. The Academy never
+   blocks on this load.
 
    Read state persists in localStorage under LS_NOTIFICATIONS_READ as an
    array of read ids. An unread count badge sits on the bell while there
@@ -3647,24 +3652,25 @@ const startSession = () => { try { reportSessionStart(); } catch (e) {} };
    an individual notification does. Mark-all-read button clears the badge
    without forcing the user to click each item. */
 
-const NOTIFICATIONS = [
-  {
-    id: "feature-sample-1",
-    category: "feature",
-    title: "Sample feature update",
-    message: "This is example copy for a feature notification. Edit or remove it by changing the NOTIFICATIONS array in app.js when you have a real announcement to make.",
-    at: "2026-05-02",
-    link: null,
-  },
-  {
-    id: "academy-2026-04-30-internal-track",
-    category: "academy",
-    title: "Internal track is live",
-    message: "Qargo staff can now access the Look-and-Feel module behind the shared password. Pick the Internal role in your profile to unlock it.",
-    at: "2026-04-30",
-    link: "#/",
-  },
-];
+let NOTIFICATIONS = [];
+
+async function loadNotifications() {
+  try {
+    const res = await fetch("notifications.json", { cache: "no-cache" });
+    if (!res.ok) {
+      console.warn("[notifications] fetch failed:", res.status);
+      return;
+    }
+    const data = await res.json();
+    if (Array.isArray(data?.notifications)) {
+      NOTIFICATIONS = data.notifications;
+    } else {
+      console.warn("[notifications] unexpected shape; expected { notifications: [...] }");
+    }
+  } catch (e) {
+    console.warn("[notifications] load failed:", e.message);
+  }
+}
 
 const LS_NOTIFICATIONS_READ = "academy.notifications_read";
 
@@ -3868,6 +3874,10 @@ function wireNotifications() {
     // call ran before MODULES existed, so isPathComplete() returned false
     // even for learners who had finished the path.
     renderMe();
+    // Notifications come from notifications.json; the loader is fail-safe,
+    // so a missing or broken file never blocks boot. Awaiting it before
+    // wireNotifications keeps the unread badge accurate on first paint.
+    await loadNotifications();
     wireNotifications();
   } catch (err) {
     console.error("[content] failed to load:", err);
