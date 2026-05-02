@@ -14,7 +14,6 @@ That starts a Python HTTP server on `http://localhost:8000/`. Opening `index.htm
 
 - `CONTEXT.md` — full platform architecture: routing, block types, persistence, design tokens.
 - `LOADER.md` — how the content tree is structured and how the loader fetches and assembles it.
-- `LESSON_AUTHORING_INSTRUCTIONS.md` — how to author a lesson; canonical reference for block field requirements.
 
 ## What lives where
 
