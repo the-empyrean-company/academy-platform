@@ -161,8 +161,8 @@ header .notif .notif-badge {
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: var(--brand-600);
-  color: var(--brand-900);
+  background: #E04D4D;
+  color: #fff;
   font-size: 11px;
   font-weight: 700;
   line-height: 18px;
@@ -171,6 +171,26 @@ header .notif .notif-badge {
   pointer-events: none;
 }
 header .notif .notif-badge[hidden] { display: none; }
+
+/* Radiating wave: a ring that grows out of the badge and fades, like a
+   ping. Disabled while the popover is open and for reduced-motion. */
+header .notif.has-unread .notif-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px #E04D4D;
+  animation: notif-wave 1.8s ease-out infinite;
+  pointer-events: none;
+}
+header .notif.has-unread[aria-expanded="true"] .notif-badge::after { animation: none; }
+@keyframes notif-wave {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  header .notif.has-unread .notif-badge::after { animation: none; }
+}
 
 /* Notifications popover. Anchored to the bell at render time via inline
    top/right values; styling here covers everything else. */
