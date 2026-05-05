@@ -3021,7 +3021,7 @@ function renderMatch(el, block, markDone) {
     targets.querySelectorAll(".target").forEach(row => {
       const chip = row.querySelector(".chip");
       row.classList.remove("correct", "wrong");
-      if (chip && chip.dataset.idx === row.dataset.idx) {
+      if (chip && block.pairs[chip.dataset.idx].definition === block.pairs[row.dataset.idx].definition) {
         row.classList.add("correct"); correct++;
       } else if (chip) {
         row.classList.add("wrong");
