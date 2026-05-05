@@ -1,0 +1,53 @@
+{
+  "id": "m0-l1-welcome",
+  "title": "Welcome to Qargo",
+  "blocks": [
+    {
+      "type": "text",
+      "title": "What Qargo is and why it works the way it does",
+      "lead": "Welcome to Qargo. Before you touch any screen, it helps to know what the system is doing in the background.",
+      "body": "Qargo is a Transport Management System built around how transport actually operates. Instead of forcing a workflow on you, it follows the chain your operation already runs: a customer requests a move, the move is broken into physical events at specific addresses, and those events are grouped into something a driver can execute. Knowing this chain before you open any screen is what makes the rest of the app click into place."
+    },
+    {
+      "type": "accordion",
+      "title": "Quick glossary",
+      "intro": "Four terms you'll hear every day. Expand any row for a one-line definition.",
+      "items": [
+        { "q": "Order",     "a": "The commercial promise. What the customer asked for and what they agreed to pay." },
+        { "q": "Stop",      "a": "A physical event. One pickup or one delivery, at one address, in a time window." },
+        { "q": "Trip",      "a": "A driver's route. A vehicle, a driver and the stops they'll visit in sequence." },
+        { "q": "Rate card", "a": "The pricing engine. Customer-specific rules that turn orders into invoice lines." }
+      ]
+    },
+    {
+      "type": "embed",
+      "title": "See Qargo in action",
+      "kind": "Interactive demo",
+      "url": "https://qargo.storylane.io/share/platform-page-product-tour",
+      "caption": "A short guided tour of the Qargo platform. Click through the steps, then come back to finish the lesson.",
+      "ratio": "16 / 9"
+    },
+    {
+      "type": "summary",
+      "title": "Key takeaways",
+      "points": [
+        "Qargo mirrors the real-world chain: Order, then Stop, then Trip.",
+        "The system's job is to reflect your operation, not rewrite it.",
+        "Orders, Stops, Trips and Rate Cards are the foundation you'll keep returning to."
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Quick check",
+      "question": "What does an Order capture in Qargo?",
+      "options": [
+        "The driver's route and vehicle",
+        "The commercial promise made to the customer",
+        "A single pickup or delivery event",
+        "The fuel surcharge applied to a load"
+      ],
+      "correct": 1,
+      "explanation": "Orders capture the agreement with the customer. Stops are physical events, Trips are how drivers execute them."
+    }
+  ]
+}

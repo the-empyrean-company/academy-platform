@@ -1,0 +1,8 @@
+{
+  "id": "sp-qargo-intel",
+  "title": "Qargo Intelligence",
+  "description": "Dashboards, saved reports and the analytics layer of Qargo.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

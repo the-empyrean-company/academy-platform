@@ -1,0 +1,42 @@
+{
+  "id": "m0-l5-wrap-up",
+  "title": "Wrap-up and what's next",
+  "blocks": [
+    {
+      "type": "text",
+      "title": "You've just laid the foundation",
+      "lead": "That's Module 0. Nice work. Before you move on, a quick recap of what you now know and what's coming.",
+      "body": "You can explain what Qargo is and why it's organised the way it is. You can name the four core objects and describe who owns each one. You know how CS, planning, finance and admin coordinate around the same data. And you know the six interface areas to orient any task. The rest of the learning path builds on this foundation. Module 1 walks you through Essential Setup: the baseline configuration every Qargo instance needs before it's usable."
+    },
+    {
+      "type": "embed",
+      "title": "A welcome from the Academy team",
+      "kind": "Video",
+      "url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "caption": "A short welcome video. About 90 seconds.",
+      "ratio": "16 / 9"
+    },
+    {
+      "type": "summary",
+      "title": "Where you are now",
+      "points": [
+        "You understand Qargo's mental model.",
+        "You can name the four objects and the six areas.",
+        "Module 1 will start you configuring your real setup."
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Quick check",
+      "question": "What comes after Module 0 on the learning path?",
+      "options": [
+        "M1 Essential Setup",
+        "M6 Rate Cards",
+        "M8 Reporting and Exports",
+        "You're done"
+      ],
+      "correct": 0,
+      "explanation": "Module 1 Essential Setup is next. It translates the mental model you just built into real configuration choices."
+    }
+  ]
+}

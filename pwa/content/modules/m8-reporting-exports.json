@@ -1,0 +1,9 @@
+{
+  "id": "m8-reporting-exports",
+  "code": "M8",
+  "title": "Reporting and Exports",
+  "description": "Getting the right data out for analysis, compliance and customer billing.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

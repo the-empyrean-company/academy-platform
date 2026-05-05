@@ -1,0 +1,8 @@
+{
+  "id": "sp-pallex-fortec",
+  "title": "Pall-Ex / Fortec",
+  "description": "Pall-Ex and Fortec network configuration, consignments and manifesting.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}
