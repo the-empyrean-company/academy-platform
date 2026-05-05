@@ -1,0 +1,29 @@
+name: Propose PWA sync
+on:
+  push:
+    branches: [main]
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Open sync PR if not already open
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin pwa
+          if [ -z "$(git log origin/pwa..origin/main --oneline)" ]; then
+            echo "Nothing to sync."
+            exit 0
+          fi
+          gh pr create \
+            --base pwa \
+            --head main \
+            --title "Sync main → pwa" \
+            --body "Automated PR: new changes on \`main\` are ready to merge into \`pwa\`. Review the diff and merge when ready." \
+          || echo "PR already open."
