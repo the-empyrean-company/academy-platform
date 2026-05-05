@@ -1,0 +1,9 @@
+{
+  "id": "m1-essential-setup",
+  "code": "M1",
+  "title": "Essential Setup",
+  "description": "The baseline configuration every Qargo instance needs before day one.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

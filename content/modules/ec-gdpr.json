@@ -1,0 +1,8 @@
+{
+  "id": "ec-gdpr",
+  "title": "GDPR",
+  "description": "Data protection principles for transport and logistics teams.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

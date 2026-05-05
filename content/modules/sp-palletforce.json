@@ -1,0 +1,8 @@
+{
+  "id": "sp-palletforce",
+  "title": "Palletforce",
+  "description": "Palletforce trunking, hub operations and consignment requirements.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

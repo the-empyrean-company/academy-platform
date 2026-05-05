@@ -1,0 +1,15 @@
+{
+  "id": "m0-logic-of-qargo",
+  "code": "M0",
+  "title": "The Logic of Qargo",
+  "description": "Orientation. Builds the mental model before you touch anything.",
+  "roles": ["super_admin"],
+  "locked": false,
+  "lessons": [
+    "m0-l1-welcome",
+    "m0-l2-core-objects",
+    "m0-l3-who-does-what",
+    "m0-l4-six-areas",
+    "m0-l5-wrap-up"
+  ]
+}

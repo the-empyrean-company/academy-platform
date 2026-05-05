@@ -1,0 +1,8 @@
+{
+  "id": "sp-palletline",
+  "title": "Palletline",
+  "description": "Network-specific setup, consignment rules and hub flows for Palletline members.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

@@ -1,0 +1,9 @@
+{
+  "id": "m3-stops-and-trips",
+  "code": "M3",
+  "title": "Stops and Trips",
+  "description": "How orders translate into executable transport tasks.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

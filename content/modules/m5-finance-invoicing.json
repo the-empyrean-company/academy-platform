@@ -1,0 +1,9 @@
+{
+  "id": "m5-finance-invoicing",
+  "code": "M5",
+  "title": "Finance and Invoicing",
+  "description": "Invoicing runs, credit notes, approvals and common errors.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}

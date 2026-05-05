@@ -1,0 +1,17 @@
+{
+  "id": "super-admin-first-mile",
+  "title": "The first mile: all aboard Qargo",
+  "description": "The full Super Admin onboarding journey. Ten modules, from the logic of Qargo to building your first document templates.",
+  "modules": [
+    "m0-logic-of-qargo",
+    "m1-essential-setup",
+    "m2-order-entry",
+    "m3-stops-and-trips",
+    "m4-planning-basics",
+    "m5-finance-invoicing",
+    "m6-rate-cards",
+    "m7-advanced-config",
+    "m8-reporting-exports",
+    "m9-document-templates"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "id": "m0-l4-six-areas",
+  "title": "Six areas of the interface",
+  "blocks": [
+    {
+      "type": "text",
+      "title": "The six places you'll spend your time",
+      "lead": "When a colleague asks 'where do I do X in Qargo?' the answer is almost always one of six screens.",
+      "body": "Qargo's app is organised into six main areas. Orders holds the list, filters and order detail pages. Planning is the planning board and trip detail. Finance covers invoicing and credit notes. Reports contains exports and dashboards. Admin is configuration: rate cards, master data, document templates. Profile is where you switch user, language and access settings. Everything else is a sub-view of one of these six. Learning to orient yourself here shaves the most time off onboarding."
+    },
+    {
+      "type": "match",
+      "title": "Where do I do this?",
+      "pairs": [
+        { "term": "Run today's invoicing",        "definition": "Finance" },
+        { "term": "Drag a stop onto a trip",      "definition": "Planning" },
+        { "term": "Create a new customer record", "definition": "Admin" },
+        { "term": "Export all trips for the month", "definition": "Reports" },
+        { "term": "Update a delivery time window", "definition": "Orders" }
+      ]
+    },
+    {
+      "type": "embed",
+      "title": "Take a guided tour",
+      "kind": "Interactive demo",
+      "url": "https://app.storylane.io/share/embed/preview",
+      "caption": "Click through the guided tour of the six areas, then come back to finish the lesson.",
+      "ratio": "16 / 9"
+    },
+    {
+      "type": "summary",
+      "title": "Key takeaways",
+      "points": [
+        "Six areas: Orders, Planning, Finance, Reports, Admin, Profile.",
+        "Nine times out of ten, the answer to 'where do I do X?' is one of these.",
+        "The interface rewards keyboard shortcuts: five minutes spent learning them pays back daily."
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Quick check",
+      "question": "Where would you create a new rate card?",
+      "options": ["Orders", "Planning", "Finance", "Admin"],
+      "correct": 3,
+      "explanation": "Rate cards live in Admin because they're configuration. Finance uses them every day, but Admin is where they're set up."
+    }
+  ]
+}

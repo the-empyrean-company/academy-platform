@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Qargo Academy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <a href="#/" class="brand">
+      <span class="mark" aria-hidden="true">
+        <img src="https://app.qargo.com/assets/Qargo_Icon.png" alt="Qargo" />
+      </span>
+      <span>Qargo <span class="sub">Academy</span></span>
+    </a>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="spacer"></div>
+    <label class="search" id="search-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input id="course-search" type="search" placeholder="Search courses..." autocomplete="off" />
+    </label>
+    <button class="notif" id="notif-btn" type="button" title="Notifications" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+      <span class="notif-badge" id="notif-badge" hidden></span>
+    </button>
+    <div class="me" id="me"></div>
+  </header>
+  <main id="app"></main>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

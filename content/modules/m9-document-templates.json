@@ -1,0 +1,9 @@
+{
+  "id": "m9-document-templates",
+  "code": "M9",
+  "title": "Document Templates",
+  "description": "CMRs, delivery notes and proof-of-delivery layouts. Handlebar expressions explained.",
+  "roles": ["super_admin"],
+  "locked": true,
+  "lessons": []
+}
