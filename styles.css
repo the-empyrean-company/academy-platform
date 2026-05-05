@@ -2577,6 +2577,7 @@ main.blocks-view { max-width: 920px; }
   margin: 64px 0;
   border-radius: 20px;
   background: linear-gradient(135deg, var(--brand-900) 0%, #1F252E 100%);
+  padding: 56px 28px 40px;
 }
 
 /* =========================================================================
