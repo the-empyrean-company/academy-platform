@@ -1,0 +1,11 @@
+{
+  "name": "Qargo Academy",
+  "short_name": "Academy",
+  "description": "Qargo learning platform for super admins",
+  "start_url": "/academy-platform/pwa/",
+  "scope": "/academy-platform/pwa/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00E85B",
+  "orientation": "portrait-primary"
+}
