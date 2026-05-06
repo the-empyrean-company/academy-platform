@@ -33,6 +33,12 @@ function getSessionToken()    { return localStorage.getItem(LS_SESSION_TOKEN) ||
 function setSessionToken(t)   { if (t) localStorage.setItem(LS_SESSION_TOKEN, t); }
 function clearSessionToken()  { localStorage.removeItem(LS_SESSION_TOKEN); }
 
+function logout() {
+  Object.keys(localStorage).filter(k => k.startsWith("academy.")).forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem("academy.privacy_consent_version");
+  location.reload();
+}
+
 /* =========================================================================
    ROLES
    From the Qargo Learning Architecture. Only Super Admin is selectable
@@ -728,6 +734,13 @@ function renderMe() {
       </div>
 
       <div class="menu-section">
+        <button type="button" class="menu-item danger" data-act="logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Log out
+        </button>
+      </div>
+
+      <div class="menu-section">
         <div class="menu-label">Demo tools</div>
         <button type="button" class="menu-item" data-act="finish-path">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 5c0-1.66 4-3 9-3s9 1.34 9 3"/></svg>
@@ -823,6 +836,7 @@ function renderMe() {
 function handleDemoAction(act) {
   switch (act) {
     case "switch-profile":     switchProfile(); break;
+    case "logout":             logout(); break;
     case "reset":              demoResetProgress(); break;
     case "earn-all-badges":    demoEarnAllBadges(); break;
     case "finish-path":        demoFinishPath(); break;
@@ -1030,7 +1044,6 @@ function showIdentityModal(onDone) {
     updateHint();
   };
   roleEl.addEventListener("change", updateHint);
-  emailEl.addEventListener("input", refreshRoleOptions);
   updateHint();
   /* Consent gate. The "Start learning" / "Save" button starts disabled and
      unlocks only when the consent box is checked. Re-running the modal
@@ -1041,15 +1054,12 @@ function showIdentityModal(onDone) {
   const consentEl = document.getElementById("id-consent");
   const stampedVersion = localStorage.getItem("academy.privacy_consent_version");
   if (stampedVersion === PRIVACY_VERSION) {
-    // Returning user who already accepted the current notice: pre-tick the
-    // box so they only need to click Save. Switching the box off and on
-    // again is still allowed.
     consentEl.checked = true;
-    saveBtn.disabled = false;
+    saveBtn.disabled = !emailEl.value.trim();
   }
-  consentEl.addEventListener("change", () => {
-    saveBtn.disabled = !consentEl.checked;
-  });
+  const checkReady = () => { saveBtn.disabled = !consentEl.checked || !emailEl.value.trim(); };
+  consentEl.addEventListener("change", checkReady);
+  emailEl.addEventListener("input", () => { refreshRoleOptions(); checkReady(); });
   (isEdit ? roleEl : nameEl).focus();
   const submit = async () => {
     const name = document.getElementById("id-name").value.trim();
@@ -1058,13 +1068,14 @@ function showIdentityModal(onDone) {
     const role = roleEl.value;
     const err = document.getElementById("id-error");
     err.textContent = "";
-    if (!name || !email || !company) { err.textContent = "Name, email, and company are required."; return; }
+    if (!email) { err.textContent = "Please enter your work email."; return; }
     if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Please enter a valid email."; return; }
-    if (!role) { err.textContent = "Please pick your role."; return; }
+    const resolvedName    = name    || email.split("@")[0];
+    const rawDomain       = email.split("@")[1]?.split(".")[0] || "";
+    const resolvedCompany = company || (rawDomain.charAt(0).toUpperCase() + rawDomain.slice(1));
+    const resolvedRole    = role    || ROLES.find(r => r.available && !r.internalOnly)?.id || "";
     // Final client-side guard: the Internal role requires a Qargo email.
-    // The authoritative check is the Worker password verification below;
-    // this just keeps externals from picking the role by mistake.
-    const roleDef = ROLES.find(r => r.id === role);
+    const roleDef = ROLES.find(r => r.id === (role || resolvedRole));
     if (roleDef?.internalOnly && !isInternalEmail(email)) {
       err.textContent = "The Internal profile is reserved for Qargo staff. Please use your @qargo.com email.";
       return;
@@ -1096,7 +1107,7 @@ function showIdentityModal(onDone) {
       // it cannot be reused by accident if the role is switched back.
       clearInternalToken();
     }
-    setLearner({ name, email, company, role });
+    setLearner({ name: resolvedName, email, company: resolvedCompany, role: resolvedRole });
     /* Stamp the accepted privacy notice version. Used on subsequent modal
        opens to decide whether to re-prompt: if PRIVACY_VERSION advances,
        the stored value won't match and the consent box will start
