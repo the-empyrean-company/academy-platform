@@ -28,3 +28,6 @@ LESSON_AUTHORING_INSTRUCTIONS.md
 # Reference copy of the prompt body for the academy-visitor-sync scheduled
 # task. Internal operational workflow, not something the public repo needs.
 academy-visitor-sync-updated-prompt.md
+
+# Security audit report. Kept local — not for public repo.
+SECURITY_AUDIT.md
