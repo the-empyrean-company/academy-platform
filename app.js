@@ -126,17 +126,22 @@ function setInternalToken(token) {
 function clearInternalToken() {
   try { localStorage.removeItem(LS_INTERNAL_TOKEN); } catch (e) {}
 }
-/* Single place to authenticate against the Worker. Returns the token on
-   success, throws Error("invalid password") on a 401, throws other errors
-   for network / server failures so the caller can distinguish "bad pw"
-   (show inline error) from "Worker is down" (toast and bail). */
-async function requestInternalToken(password) {
+/* Authenticate against the Worker using the learner's session token.
+   Returns the internal HMAC token on success. Throws Error("access not granted")
+   if the account does not have internal_access, or other errors for network
+   / server failures. */
+async function requestInternalToken() {
+  const sessionToken = getSessionToken();
   const res = await fetch(INTERNAL_AUTH_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password }),
+    headers: {
+      "Content-Type": "application/json",
+      ...(sessionToken ? { "Authorization": `Bearer ${sessionToken}` } : {}),
+    },
+    body: JSON.stringify({}),
   });
-  if (res.status === 401) throw new Error("invalid password");
+  if (res.status === 401) throw new Error("unauthorized");
+  if (res.status === 403) throw new Error("access not granted");
   if (!res.ok) throw new Error(`auth failed (${res.status})`);
   const data = await res.json();
   if (!data?.token) throw new Error("auth response missing token");
@@ -990,11 +995,6 @@ function showIdentityModal(onDone) {
           ${buildRoleOptions(existing.email || "", existing.role)}
         </select>
         <div class="role-hint" id="id-role-hint"></div>
-        <div id="id-internal-row" hidden>
-          <label for="id-internal-pw">Internal access password</label>
-          <input id="id-internal-pw" type="password" autocomplete="off" placeholder="Shared with Qargo staff" />
-          <div class="role-hint">Required to unlock Internal modules. Ask your manager if you do not have it.</div>
-        </div>
         <div class="error" id="id-error"></div>
         <div class="actions">
           <button class="primary" id="id-save">Save</button>
@@ -1006,14 +1006,9 @@ function showIdentityModal(onDone) {
     const roleEl       = document.getElementById("id-role");
     const hintEl       = document.getElementById("id-role-hint");
     const saveBtn      = document.getElementById("id-save");
-    const internalRow  = document.getElementById("id-internal-row");
-    const internalPwEl = document.getElementById("id-internal-pw");
     const updateHint = () => {
       const r = ROLES.find(r => r.id === roleEl.value);
       hintEl.textContent = r ? r.blurb : "";
-      const showInternal = !!r?.internalOnly;
-      internalRow.hidden = !showInternal;
-      if (!showInternal) internalPwEl.value = "";
     };
     roleEl.addEventListener("change", updateHint);
     emailEl.addEventListener("input", () => {
@@ -1042,15 +1037,14 @@ function showIdentityModal(onDone) {
         err.textContent = "The Internal profile is reserved for Qargo staff."; return;
       }
       if (roleDef?.internalOnly) {
-        const pw = internalPwEl.value;
-        if (!pw) { err.textContent = "Please enter the Internal access password."; return; }
         saveBtn.disabled = true;
         const prev = saveBtn.textContent; saveBtn.textContent = "Verifying...";
-        try { setInternalToken(await requestInternalToken(pw)); }
+        try { setInternalToken(await requestInternalToken()); }
         catch (e) {
           saveBtn.disabled = false; saveBtn.textContent = prev;
-          err.textContent = e.message === "invalid password"
-            ? "That password is not correct." : `Could not reach auth service: ${e.message}`;
+          err.textContent = e.message === "access not granted"
+            ? "Your account does not have access to Internal content. Contact your manager."
+            : `Could not reach auth service: ${e.message}`;
           return;
         }
         saveBtn.disabled = false; saveBtn.textContent = prev;
@@ -1103,11 +1097,6 @@ function showIdentityModal(onDone) {
           ${buildRoleOptions(existing.email || "", existing.role)}
         </select>
         <div class="role-hint" id="reg-role-hint"></div>
-        <div id="reg-internal-row" hidden>
-          <label for="reg-internal-pw">Internal access password</label>
-          <input id="reg-internal-pw" type="password" autocomplete="off" placeholder="Shared with Qargo staff" />
-          <div class="role-hint">Required to unlock Internal modules. Ask your manager if you do not have it.</div>
-        </div>
         <div class="consent-row">
           <label class="consent-label">
             <input id="reg-consent" type="checkbox" />
@@ -1153,12 +1142,16 @@ function showIdentityModal(onDone) {
     }
     _hasPassword = true;
     const profile = result.profile || {};
+    const resolvedRole = profile.role || existing.role || "";
     setLearner({
       email,
       name:    profile.name    || existing.name    || email.split("@")[0],
-      role:    profile.role    || existing.role    || "",
+      role:    resolvedRole,
       company: profile.company || existing.company || "",
     });
+    if (ROLES.find(r => r.id === resolvedRole)?.internalOnly) {
+      try { setInternalToken(await requestInternalToken()); } catch (e) { clearInternalToken(); }
+    }
     back.remove();
     if (onDone) onDone();
   };
@@ -1186,8 +1179,6 @@ function showIdentityModal(onDone) {
     const regCompanyEl   = document.getElementById("reg-company");
     const regRoleEl      = document.getElementById("reg-role");
     const regHintEl      = document.getElementById("reg-role-hint");
-    const regInternalRow  = document.getElementById("reg-internal-row");
-    const regInternalPwEl = document.getElementById("reg-internal-pw");
     const regConsentEl   = document.getElementById("reg-consent");
     const regBtnEl       = document.getElementById("reg-btn");
     const regErrEl       = document.getElementById("reg-err");
@@ -1195,9 +1186,6 @@ function showIdentityModal(onDone) {
     const updateRegHint = () => {
       const r = ROLES.find(r => r.id === regRoleEl.value);
       regHintEl.textContent = r ? r.blurb : "";
-      const showInternal = !!r?.internalOnly;
-      regInternalRow.hidden = !showInternal;
-      if (!showInternal) regInternalPwEl.value = "";
     };
     regRoleEl.addEventListener("change", updateRegHint);
     updateRegHint();
@@ -1251,14 +1239,13 @@ function showIdentityModal(onDone) {
       }
       _hasPassword = true;
       if (roleDef?.internalOnly) {
-        const ipw = regInternalPwEl.value;
-        if (!ipw) { regErrEl.textContent = "Please enter the Internal access password."; regBtnEl.disabled = false; return; }
         regBtnEl.disabled = true; regBtnEl.textContent = "Verifying...";
-        try { setInternalToken(await requestInternalToken(ipw)); }
+        try { setInternalToken(await requestInternalToken()); }
         catch (e) {
           regBtnEl.disabled = false; regBtnEl.textContent = prev;
-          regErrEl.textContent = e.message === "invalid password"
-            ? "That password is not correct." : `Could not reach auth service: ${e.message}`;
+          regErrEl.textContent = e.message === "access not granted"
+            ? "Your account does not have access to Internal content. Contact your manager."
+            : `Could not reach auth service: ${e.message}`;
           return;
         }
         regBtnEl.disabled = false; regBtnEl.textContent = prev;
