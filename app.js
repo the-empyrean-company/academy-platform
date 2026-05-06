@@ -426,11 +426,16 @@ function markCompleted(courseId) {
 const LS_PATH_COMPLETED = "academy.path_completed_at";
 const LS_CERT_ID        = "academy.cert_id";
 
+function isModuleFinished(m) {
+  if (getCompleted()[m.id]) return true;
+  const lessons = lessonsOf(m);
+  if (!lessons.length) return false;
+  const completed = getModuleProgress(m.id).completedLessons;
+  return lessons.every(l => completed.includes(l.id));
+}
 function isPathComplete() {
-  const unlocked = MODULES.filter(m => !m.locked && moduleLessonCount(m) > 0);
-  if (!unlocked.length) return false;
-  const done = getCompleted();
-  return unlocked.every(m => !!done[m.id]);
+  if (!MODULES.length) return false;
+  return MODULES.every(isModuleFinished);
 }
 
 function getPathCompletedAt() {
@@ -672,23 +677,19 @@ function getCurrentStreak() {
 /* Award all badges the learner has just qualified for. Called from the
    places that move state forward — profile creation, lesson done,
    module done, path done. Idempotent — already-earned badges are no-ops. */
-function checkEngagementBadges(reason) {
+function checkEngagementBadges(reason, { syncDb = true } = {}) {
   if (!getLearner()) return;
-  grantBadge("first-day");
+  grantBadge("first-day", { syncDb });
   if (reason === "lesson") {
     logActivityToday();
-    grantBadge("first-lesson");
+    grantBadge("first-lesson", { syncDb });
     const s = getCurrentStreak();
-    if (s >= 3)  grantBadge("streak-3");
-    if (s >= 5)  grantBadge("streak-5");
-    if (s >= 10) grantBadge("streak-10");
+    if (s >= 3)  grantBadge("streak-3", { syncDb });
+    if (s >= 5)  grantBadge("streak-5", { syncDb });
+    if (s >= 10) grantBadge("streak-10", { syncDb });
   }
-  if (reason === "module") {
-    grantBadge("first-module");
-  }
-  if (reason === "path") {
-    grantBadge("first-path");
-  }
+  if (reason === "module") grantBadge("first-module", { syncDb });
+  if (reason === "path")   grantBadge("first-path", { syncDb });
 }
 
 /* Stable cert ID per learner+path. Same learner gets the same ID across refreshes. */
@@ -864,10 +865,10 @@ function demoFinishPath() {
   setPathCompletedAtIfMissing();
   getCertId();
   logActivityToday();
-  checkEngagementBadges("welcome");
-  checkEngagementBadges("lesson");
-  checkEngagementBadges("module");
-  checkEngagementBadges("path");
+  checkEngagementBadges("welcome", { syncDb: false });
+  checkEngagementBadges("lesson",  { syncDb: false });
+  checkEngagementBadges("module",  { syncDb: false });
+  checkEngagementBadges("path",    { syncDb: false });
   setTimeout(route, 200);
 }
 
@@ -887,9 +888,9 @@ function demoMidPathState() {
   });
   localStorage.setItem(LS_COMPLETED, JSON.stringify(all));
   logActivityToday();
-  checkEngagementBadges("welcome");
-  checkEngagementBadges("lesson");
-  checkEngagementBadges("module");
+  checkEngagementBadges("welcome", { syncDb: false });
+  checkEngagementBadges("lesson",  { syncDb: false });
+  checkEngagementBadges("module",  { syncDb: false });
   toast("Mid-path state set");
   setTimeout(route, 200);
 }
@@ -904,9 +905,9 @@ function demoSet10DayStreak() {
     dates.push(d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"));
   }
   localStorage.setItem(LS_ACTIVITY, JSON.stringify(dates));
-  grantBadge("streak-3");
-  grantBadge("streak-5");
-  grantBadge("streak-10");
+  grantBadge("streak-3",  { syncDb: false });
+  grantBadge("streak-5",  { syncDb: false });
+  grantBadge("streak-10", { syncDb: false });
   setTimeout(route, 200);
 }
 
@@ -935,10 +936,10 @@ function demoGenerateCert() {
   setPathCompletedAtIfMissing();
   getCertId();
   logActivityToday();
-  checkEngagementBadges("welcome");
-  checkEngagementBadges("lesson");
-  checkEngagementBadges("module");
-  checkEngagementBadges("path");
+  checkEngagementBadges("welcome", { syncDb: false });
+  checkEngagementBadges("lesson",  { syncDb: false });
+  checkEngagementBadges("module",  { syncDb: false });
+  checkEngagementBadges("path",    { syncDb: false });
   location.hash = "#/badge";
 }
 
@@ -3886,6 +3887,12 @@ function renderNotificationsBadge() {
   const badge = document.getElementById("notif-badge");
   if (!badge) return;
   const btn = document.getElementById("notif-btn");
+  if (!getLearner()) {
+    badge.hidden = true;
+    badge.textContent = "";
+    btn?.classList.remove("has-unread");
+    return;
+  }
   const count = unreadNotificationCount();
   if (count === 0) {
     badge.hidden = true;
@@ -4055,6 +4062,20 @@ function wireNotifications() {
     }
     return;
   }
+  // Run after every loadProgressFromD1 so path completion is detected even
+  // when all lessons were finished in a prior session (D1 restores progress
+  // but doesn't replay the lesson-completion callbacks).
+  function afterProgressLoad() {
+    if (isPathComplete()) {
+      const wasFirstTime = setPathCompletedAtIfMissing();
+      getCertId();
+      checkEngagementBadges("path");
+      if (wasFirstTime) reportPathComplete();
+    }
+    renderNotificationsBadge();
+    route();
+  }
+
   if (!_l || !_l.role) {
     showIdentityModal(async () => {
       try { await loadContent(); }
@@ -4062,7 +4083,7 @@ function wireNotifications() {
       // syncLearnerToD1 already fired inside setLearner(); wait for the token
       // to land before loading progress so the first boot is fully connected.
       await syncLearnerToD1(getLearner());
-      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); route(); });
+      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); afterProgressLoad(); });
       startSession();
       route();
     });
@@ -4072,7 +4093,7 @@ function wireNotifications() {
     const ensureToken = getSessionToken()
       ? Promise.resolve()
       : syncLearnerToD1(_l);
-    ensureToken.then(() => loadProgressFromD1()).then(() => route());
+    ensureToken.then(() => loadProgressFromD1()).then(afterProgressLoad);
     startSession();
     route();
   }
