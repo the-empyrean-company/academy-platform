@@ -742,29 +742,17 @@ function renderMe() {
 
       <div class="menu-section">
         <div class="menu-label">Demo tools</div>
-        <button type="button" class="menu-item" data-act="finish-path">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 5c0-1.66 4-3 9-3s9 1.34 9 3"/></svg>
-          Finish learning path
-        </button>
         <button type="button" class="menu-item" data-act="generate-cert">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/><path d="M8 13.5h8"/></svg>
-          Generate certificate
-        </button>
-        <button type="button" class="menu-item" data-act="mid-path">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
-          Set mid-path state
+          Show certificate
         </button>
         <button type="button" class="menu-item" data-act="earn-all-badges">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
-          Earn all badges
+          Show progress badges
         </button>
         <button type="button" class="menu-item" data-act="set-streak">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
-          Set 10-day streak
-        </button>
-        <button type="button" class="menu-item" data-act="preview-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
-          Preview badge celebration
+          Show streak badges
         </button>
         <button type="button" class="menu-item danger" data-act="reset">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
@@ -839,26 +827,25 @@ function handleDemoAction(act) {
     case "logout":             logout(); break;
     case "reset":              demoResetProgress(); break;
     case "earn-all-badges":    demoEarnAllBadges(); break;
-    case "finish-path":        demoFinishPath(); break;
     case "generate-cert":      demoGenerateCert(); break;
-    case "set-streak":         demoSet10DayStreak(); break;
-    case "mid-path":           demoMidPathState(); break;
-    case "preview-badge":      demoPreviewBadge(); break;
+    case "set-streak":         demoEarnStreakBadges(); break;
   }
 }
 
 function demoResetProgress() {
-  if (!confirm("This clears all academy progress on this browser: completions, badges, streaks, certificate, and saved API key. Continue?")) return;
+  if (!confirm("This clears your local progress on this browser (completions, badges, streaks, certificate). Your data in the database is kept. Continue?")) return;
   [LS_COMPLETED, LS_PROGRESS, LS_BADGES, LS_ACTIVITY, LS_PATH_COMPLETED, LS_CERT_ID, LS_TUTOR_KEY].forEach(k => localStorage.removeItem(k));
   toast("Progress reset");
   route();
 }
 
 function demoEarnAllBadges() {
-  // Granting a badge auto-queues the celebration; the queue plays them
-  // back-to-back. Re-render the sidebar after the last one so the grid
-  // reflects the new state.
-  ENGAGEMENT_BADGES.forEach(b => grantBadge(b.id));
+  ENGAGEMENT_BADGES.filter(b => !b.id.startsWith("streak")).forEach(b => grantBadge(b.id));
+  setTimeout(route, 600);
+}
+
+function demoEarnStreakBadges() {
+  ENGAGEMENT_BADGES.filter(b => b.id.startsWith("streak")).forEach(b => grantBadge(b.id));
   setTimeout(route, 600);
 }
 
