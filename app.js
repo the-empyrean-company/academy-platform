@@ -3136,7 +3136,7 @@ function renderMatch(el, block, markDone) {
 
   addDropZone(pool, e => {
     const idx = e.dataTransfer.getData("text/plain");
-    const chip = document.querySelector(`.chip[data-idx="${idx}"]`);
+    const chip = el.querySelector(`.chip[data-idx="${idx}"]`);
     if (chip && !pool.contains(chip)) pool.appendChild(chip);
   });
 
@@ -3149,7 +3149,7 @@ function renderMatch(el, block, markDone) {
     addDropZone(row, e => {
       const idx = e.dataTransfer.getData("text/plain");
       if (slot.firstChild) pool.appendChild(slot.firstChild);
-      const chip = document.querySelector(`.chip[data-idx="${idx}"]`);
+      const chip = el.querySelector(`.chip[data-idx="${idx}"]`);
       if (chip) slot.appendChild(chip);
     });
     targets.appendChild(row);
