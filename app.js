@@ -4062,7 +4062,7 @@ function wireNotifications() {
       // syncLearnerToD1 already fired inside setLearner(); wait for the token
       // to land before loading progress so the first boot is fully connected.
       await syncLearnerToD1(getLearner());
-      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); route(); });
+      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); renderNotificationsBadge(); route(); });
       startSession();
       route();
     });
@@ -4072,7 +4072,7 @@ function wireNotifications() {
     const ensureToken = getSessionToken()
       ? Promise.resolve()
       : syncLearnerToD1(_l);
-    ensureToken.then(() => loadProgressFromD1()).then(() => route());
+    ensureToken.then(() => loadProgressFromD1()).then(() => { renderNotificationsBadge(); route(); });
     startSession();
     route();
   }
