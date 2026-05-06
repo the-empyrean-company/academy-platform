@@ -1529,6 +1529,18 @@ async function reportCompletion(course) {
 const app = document.getElementById("app");
 const crumbs = document.getElementById("crumbs");
 
+function updatePwaNav() {
+  const hash = location.hash || "#/";
+  const tabs = { home: "#pwa-tab-home", leaderboard: "#pwa-tab-leaderboard", badges: "#pwa-tab-badges" };
+  const active =
+    hash.startsWith("#/leaderboard") ? "leaderboard" :
+    hash.startsWith("#/badges")      ? "badges"      : "home";
+  for (const [key, sel] of Object.entries(tabs)) {
+    document.getElementById(sel.slice(1))?.classList.toggle("active", key === active);
+  }
+  document.body.classList.toggle("pwa-home", active === "home");
+}
+
 function route() {
   const hash = location.hash || "#/";
   if (hash.startsWith("#/course/")) {
@@ -1540,12 +1552,104 @@ function route() {
     renderBlocksDemo();
   } else if (hash.startsWith("#/badge")) {
     renderBadge();
+  } else if (hash.startsWith("#/leaderboard")) {
+    renderLeaderboardPage();
+  } else if (hash.startsWith("#/badges")) {
+    renderBadgesPage();
   } else {
     renderCatalog();
   }
+  updatePwaNav();
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 window.addEventListener("hashchange", route);
+
+function renderLeaderboardPage() {
+  crumbs.textContent = "";
+  app.classList.remove("course-view", "blocks-view", "badge-view");
+  app.classList.add("home-view");
+  document.body.classList.remove("in-course");
+  app.innerHTML = `
+    <div class="pwa-page">
+      <h1 class="pwa-page-title">Leaderboard</h1>
+      <p class="pwa-page-sub">Ranked by lessons completed within your company.</p>
+      <ol class="leaderboard-list" id="leaderboard-list">
+        <li class="leaderboard-loading">Loading...</li>
+      </ol>
+    </div>
+  `;
+  (async () => {
+    const ol = document.getElementById("leaderboard-list");
+    if (!ol) return;
+    const rows = await fetchLeaderboard();
+    if (!ol.isConnected) return;
+    if (!rows || !rows.length) {
+      ol.innerHTML = `<li class="leaderboard-loading">No data yet — complete lessons to appear here.</li>`;
+      return;
+    }
+    const selfName = getLearner()?.name || "";
+    ol.innerHTML = rows.map((row, i) => {
+      const isYou = selfName && row.name === selfName;
+      const pts = (row.lessons_completed || 0) * 200;
+      return `<li class="${isYou ? "is-you" : ""}">
+        <span class="rank">${i + 1}</span>
+        <span class="who">
+          <span class="nm">${escape(row.name || "—")}${isYou ? ' <span class="you-chip">You</span>' : ""}</span>
+          ${row.company ? `<span class="co">${escape(row.company)}</span>` : ""}
+        </span>
+        <span class="pts">${pts.toLocaleString()} pts</span>
+      </li>`;
+    }).join("");
+  })();
+}
+
+function renderBadgesPage() {
+  crumbs.textContent = "";
+  app.classList.remove("course-view", "blocks-view", "badge-view");
+  app.classList.add("home-view");
+  document.body.classList.remove("in-course");
+
+  const earnedBadges = getEarnedBadges();
+  const pathComplete = isPathComplete();
+  const streak = getCurrentStreak();
+  const earnedCount = ENGAGEMENT_BADGES.filter(b => earnedBadges[b.id]).length + (pathComplete ? 1 : 0);
+  const totalCount  = ENGAGEMENT_BADGES.length + 1;
+
+  const badgeHexes = ENGAGEMENT_BADGES.map(b => {
+    const earned = !!earnedBadges[b.id];
+    const glow = earned ? `--hex-glow: ${b.c2}66;` : "";
+    return `<div class="hex-badge ${earned ? "earned" : "locked"}" style="${glow}" title="${escape(b.title)}${earned ? " — earned" : ""}\n${escape(b.desc)}">
+      ${buildHexBadgeSVG(b)}
+    </div>`;
+  }).join("");
+
+  app.innerHTML = `
+    <div class="pwa-page">
+      <h1 class="pwa-page-title">Badges</h1>
+      <div class="pwa-badge-summary">
+        <span class="num">${earnedCount}</span>
+        <span class="total">of ${totalCount} earned</span>
+        ${streak > 0
+          ? `<span class="pwa-streak">🔥 ${streak}-day streak</span>`
+          : `<span class="pwa-streak">No active streak yet</span>`}
+      </div>
+      <div class="b-section-label">Milestones</div>
+      <div class="grid eng-grid pwa-badge-grid">${badgeHexes}</div>
+      <div class="b-cert ${pathComplete ? "earned" : "locked"}">
+        <span class="b-cert-icon">${pathComplete
+          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg>`
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`}
+        </span>
+        <div class="b-cert-text">
+          <strong>LinkedIn certificate</strong>
+          ${pathComplete
+            ? `<a href="#/badge" style="color:var(--brand-700);font-weight:600;">View &rarr;</a>`
+            : `<span>Awarded for full-path completion</span>`}
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 function renderCatalog() {
   crumbs.textContent = "";
