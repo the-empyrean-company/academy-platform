@@ -976,7 +976,7 @@ function showIdentityModal(onDone) {
   if (isEdit) {
     back.innerHTML = `
       <div class="modal">
-        <div class="mark-lg"><img src="https://app.qargo.com/assets/Qargo_Icon.png" alt="Qargo" /></div>
+        <div class="mark-lg"><img src="qargo-icon.png" alt="Qargo" /></div>
         <h2>Edit profile</h2>
         <label for="id-name">Full name</label>
         <input id="id-name" autocomplete="name" value="${escape(existing.name || "")}" />
@@ -1069,7 +1069,7 @@ function showIdentityModal(onDone) {
   // Auth modal: sign-in / register tabs (+ set-password mode which hides the tabs)
   back.innerHTML = `
     <div class="modal">
-      <div class="mark-lg"><img src="https://app.qargo.com/assets/Qargo_Icon.png" alt="Qargo" /></div>
+      <div class="mark-lg"><img src="qargo-icon.png" alt="Qargo" /></div>
       <h2>Qargo Academy</h2>
       ${isSetPassword ? `<p class="lead">Set a password to protect your progress.</p>` : `
       <div class="auth-tabs">
@@ -1564,17 +1564,30 @@ function route() {
 }
 window.addEventListener("hashchange", route);
 
+function lbAvatarHue(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xFFFFFF;
+  return h % 360;
+}
+
 function renderLeaderboardPage() {
   crumbs.textContent = "";
   app.classList.remove("course-view", "blocks-view", "badge-view");
   app.classList.add("home-view");
   document.body.classList.remove("in-course");
   app.innerHTML = `
-    <div class="pwa-page">
-      <h1 class="pwa-page-title">Leaderboard</h1>
-      <p class="pwa-page-sub">Ranked by lessons completed within your company.</p>
-      <ol class="leaderboard-list" id="leaderboard-list">
-        <li class="leaderboard-loading">Loading...</li>
+    <div class="pwa-lb">
+      <div class="lb-header">
+        <div class="lb-trophy-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+        </div>
+        <div>
+          <h1 class="lb-title">Leaderboard</h1>
+          <p class="lb-sub">Ranked by lessons completed at your company.</p>
+        </div>
+      </div>
+      <ol class="lb-list" id="leaderboard-list">
+        <li class="lb-placeholder">Loading...</li>
       </ol>
     </div>
   `;
@@ -1584,20 +1597,28 @@ function renderLeaderboardPage() {
     const rows = await fetchLeaderboard();
     if (!ol.isConnected) return;
     if (!rows || !rows.length) {
-      ol.innerHTML = `<li class="leaderboard-loading">No data yet — complete lessons to appear here.</li>`;
+      ol.innerHTML = `<li class="lb-placeholder">No data yet — complete a lesson to appear here.</li>`;
       return;
     }
     const selfName = getLearner()?.name || "";
+    const medals   = ["🥇", "🥈", "🥉"];
     ol.innerHTML = rows.map((row, i) => {
-      const isYou = selfName && row.name === selfName;
-      const pts = (row.lessons_completed || 0) * 200;
-      return `<li class="${isYou ? "is-you" : ""}">
-        <span class="rank">${i + 1}</span>
-        <span class="who">
-          <span class="nm">${escape(row.name || "—")}${isYou ? ' <span class="you-chip">You</span>' : ""}</span>
-          ${row.company ? `<span class="co">${escape(row.company)}</span>` : ""}
+      const isYou    = !!(selfName && row.name === selfName);
+      const isTop3   = i < 3;
+      const pts      = (row.lessons_completed || 0) * 200;
+      const initials = (row.name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+      const hue      = lbAvatarHue(row.name || "");
+      return `<li class="lb-row${isTop3 ? ` lb-top lb-r${i + 1}` : ""}${isYou ? " lb-you" : ""}">
+        <span class="lb-rank">${isTop3 ? medals[i] : i + 1}</span>
+        <span class="lb-av" style="--hue:${hue}">${initials}</span>
+        <span class="lb-who">
+          <span class="lb-name">${escape(row.name || "—")}${isYou ? ' <span class="you-chip">You</span>' : ""}</span>
+          ${row.company ? `<span class="lb-co">${escape(row.company)}</span>` : ""}
         </span>
-        <span class="pts">${pts.toLocaleString()} pts</span>
+        <span class="lb-pts-wrap">
+          <span class="lb-pts">${pts.toLocaleString()}</span>
+          <span class="lb-pts-u">pts</span>
+        </span>
       </li>`;
     }).join("");
   })();
