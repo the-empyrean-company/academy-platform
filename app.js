@@ -947,6 +947,9 @@ function showIdentityModal(onDone) {
   if (document.getElementById("id-modal")) return;
   const existing = getLearner() || {};
   const isEdit = !!existing.name;
+  // Password required whenever there is no valid session token — covers both
+  // first-time registration and re-authentication after logout/token expiry.
+  const needsPassword = !getSessionToken();
   /* Build the role <option> list. Internal-only roles are filtered out
      unless the current email value already qualifies. The list is rebuilt
      on email input so the option appears the moment the learner types a
@@ -972,6 +975,11 @@ function showIdentityModal(onDone) {
       <input id="id-name" autocomplete="name" value="${escape(existing.name || "")}" />
       <label for="id-email">Work email</label>
       <input id="id-email" type="email" autocomplete="email" value="${escape(existing.email || "")}" />
+      ${needsPassword ? `
+      <label for="id-password">Password</label>
+      <input id="id-password" type="password" autocomplete="${isEdit ? "current-password" : "new-password"}" placeholder="8 characters minimum" />
+      <p class="field-hint">${isEdit ? "Enter your password to sign in." : "Choose a password to protect your progress."}</p>
+      ` : ""}
       <label for="id-company">Company</label>
       <input id="id-company" autocomplete="organization" value="${escape(existing.company || "")}" />
       <label for="id-role">Your role</label>
@@ -1036,15 +1044,20 @@ function showIdentityModal(onDone) {
      a previous version of this notice can't sail past it. We stamp the
      accepted PRIVACY_VERSION into localStorage on submit, which lets us
      detect if the notice changes and re-prompt later. */
-  const consentEl = document.getElementById("id-consent");
+  const consentEl  = document.getElementById("id-consent");
+  const passwordEl = needsPassword ? document.getElementById("id-password") : null;
   const stampedVersion = localStorage.getItem("academy.privacy_consent_version");
   if (stampedVersion === PRIVACY_VERSION) {
     consentEl.checked = true;
     saveBtn.disabled = !emailEl.value.trim();
   }
-  const checkReady = () => { saveBtn.disabled = !consentEl.checked || !emailEl.value.trim(); };
+  const checkReady = () => {
+    const pwOk = !needsPassword || (passwordEl && passwordEl.value.length >= 8);
+    saveBtn.disabled = !consentEl.checked || !emailEl.value.trim() || !pwOk;
+  };
   consentEl.addEventListener("change", checkReady);
   emailEl.addEventListener("input", () => { refreshRoleOptions(); checkReady(); });
+  if (passwordEl) passwordEl.addEventListener("input", checkReady);
   (isEdit ? roleEl : nameEl).focus();
   const submit = async () => {
     const name = document.getElementById("id-name").value.trim();
@@ -1065,6 +1078,30 @@ function showIdentityModal(onDone) {
       err.textContent = "The Internal profile is reserved for Qargo staff. Please use your @qargo.com email.";
       return;
     }
+    const learnerData = { name: resolvedName, email, company: resolvedCompany, role: resolvedRole };
+
+    // If a password is required (no session token), authenticate with the
+    // Worker first. This covers both new registrations and re-logins.
+    if (needsPassword) {
+      const pw = passwordEl.value;
+      if (pw.length < 8) { err.textContent = "Password must be at least 8 characters."; return; }
+      saveBtn.disabled = true;
+      const prevLabel = saveBtn.textContent;
+      saveBtn.textContent = "Signing in...";
+      const result = await syncLearnerToD1(learnerData, pw);
+      saveBtn.textContent = prevLabel;
+      if (!result.ok) {
+        saveBtn.disabled = false;
+        err.textContent =
+          result.error === "wrong_password"   ? "Incorrect password. Try again." :
+          result.error === "password_required" ? "Password must be at least 8 characters." :
+          "Connection failed. Check your internet and try again.";
+        return;
+      }
+      // Token is now set; re-enable button for the next steps.
+      saveBtn.disabled = false;
+    }
+
     // Internal role: verify the shared password against the Worker before
     // saving the profile. If the call fails, the modal stays open so the
     // user can retry without losing what they typed.
@@ -1088,15 +1125,9 @@ function showIdentityModal(onDone) {
       saveBtn.disabled = false;
       saveBtn.textContent = prevLabel;
     } else {
-      // Picking any non-internal role drops a previously stored token so
-      // it cannot be reused by accident if the role is switched back.
       clearInternalToken();
     }
-    setLearner({ name: resolvedName, email, company: resolvedCompany, role: resolvedRole });
-    /* Stamp the accepted privacy notice version. Used on subsequent modal
-       opens to decide whether to re-prompt: if PRIVACY_VERSION advances,
-       the stored value won't match and the consent box will start
-       unchecked again. */
+    setLearner(learnerData);
     try { localStorage.setItem("academy.privacy_consent_version", PRIVACY_VERSION); }
     catch (e) { /* localStorage unavailable, non-fatal */ }
     back.remove();
@@ -1198,24 +1229,31 @@ async function d1Post(path, body) {
 
 /* Register/update the learner in D1. The Worker returns a stable session
    token that is stored locally and sent on all subsequent D1 requests. */
-async function syncLearnerToD1(learner) {
-  if (!REPORTING_ENDPOINT || !learner?.email) return;
+async function syncLearnerToD1(learner, password) {
+  if (!REPORTING_ENDPOINT || !learner?.email) return { ok: false, error: "no_endpoint" };
   try {
+    const token = getSessionToken();
+    const body = { email: learner.email, name: learner.name, role: learner.role, company: learner.company };
+    if (password) body.password = password;
     const res = await fetch(LEARNER_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email:   learner.email,
-        name:    learner.name,
-        role:    learner.role,
-        company: learner.company,
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const data = await res.json();
       if (data.token) setSessionToken(data.token);
+      return { ok: true };
     }
-  } catch (e) { console.warn("D1 learner sync failed:", e); }
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || (res.status === 401 ? "wrong_password" : "server_error") };
+  } catch (e) {
+    console.warn("D1 learner sync failed:", e);
+    return { ok: false, error: "network_error" };
+  }
 }
 
 function syncLessonToD1(moduleId, lessonId) {
@@ -4076,24 +4114,19 @@ function wireNotifications() {
     route();
   }
 
-  if (!_l || !_l.role) {
+  if (!_l || !_l.role || !getSessionToken()) {
+    // No profile, incomplete profile, or no session token (re-auth required).
+    // The modal handles both first-time registration and password re-login.
     showIdentityModal(async () => {
       try { await loadContent(); }
-      catch (e) { console.warn("[content] reload after first profile failed:", e.message); }
-      // syncLearnerToD1 already fired inside setLearner(); wait for the token
-      // to land before loading progress so the first boot is fully connected.
-      await syncLearnerToD1(getLearner());
+      catch (e) { console.warn("[content] reload after login failed:", e.message); }
+      // Token was obtained inside the modal submit; D1 progress can load now.
       loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); afterProgressLoad(); });
       startSession();
       route();
     });
   } else {
-    // Existing learner: bootstrap token if not yet stored (e.g. first boot
-    // after D1 was introduced), then load server-side progress.
-    const ensureToken = getSessionToken()
-      ? Promise.resolve()
-      : syncLearnerToD1(_l);
-    ensureToken.then(() => loadProgressFromD1()).then(afterProgressLoad);
+    loadProgressFromD1().then(afterProgressLoad);
     startSession();
     route();
   }

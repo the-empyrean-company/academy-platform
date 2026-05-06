@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS learners (
   session_token              TEXT,
   created_at                 TEXT DEFAULT (datetime('now')),
   last_active_at             TEXT DEFAULT (datetime('now')),
-  notifications_last_read_at TEXT
+  notifications_last_read_at TEXT,
+  password_hash              TEXT,
+  password_salt              TEXT
 );
 
 CREATE TABLE IF NOT EXISTS lesson_progress (
