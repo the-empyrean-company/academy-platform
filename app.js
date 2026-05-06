@@ -434,9 +434,8 @@ function isModuleFinished(m) {
   return lessons.every(l => completed.includes(l.id));
 }
 function isPathComplete() {
-  const unlocked = MODULES.filter(m => !m.locked && moduleLessonCount(m) > 0);
-  if (!unlocked.length) return false;
-  return unlocked.every(isModuleFinished);
+  if (!MODULES.length) return false;
+  return MODULES.every(isModuleFinished);
 }
 
 function getPathCompletedAt() {
