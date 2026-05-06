@@ -3280,3 +3280,52 @@ svg.hex-diamond .diamond-sparkle.s4 { animation-duration: 2.6s; animation-delay:
   .path-complete-banner { flex-wrap: wrap; }
   .path-complete-banner a.pcb-cta { width: 100%; justify-content: center; }
 }
+
+/* =========================================================================
+   PWA BOTTOM NAV — only rendered in standalone (installed) mode
+   ========================================================================= */
+#pwa-nav { display: none; }
+
+@media (display-mode: standalone) {
+  #pwa-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 90;
+  }
+  .pwa-tab {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px;
+    text-decoration: none;
+    color: var(--ink-300);
+    font-size: 11px; font-weight: 500;
+    transition: color .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pwa-tab svg { width: 22px; height: 22px; flex: none; }
+  .pwa-tab.active { color: var(--brand-600); }
+  .pwa-tab.active svg { stroke: var(--brand-600); }
+  /* Push main content up so it clears the nav */
+  #app { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  /* Hide header search + breadcrumbs on PWA home — save vertical space */
+  body.pwa-home #search-wrap,
+  body.pwa-home .crumbs { display: none; }
+}
+
+/* Shared page layout for pwa-only routes (leaderboard, badges) */
+.pwa-page { padding: 24px 20px 16px; max-width: 540px; margin: 0 auto; }
+.pwa-page-title { font-size: 24px; font-weight: 800; color: var(--ink-900); margin: 0 0 4px; }
+.pwa-page-sub   { font-size: 14px; color: var(--ink-500); margin: 0 0 24px; }
+.pwa-badge-summary {
+  display: flex; align-items: baseline; gap: 6px;
+  margin-bottom: 20px;
+}
+.pwa-badge-summary .num   { font-size: 32px; font-weight: 800; color: var(--ink-900); line-height: 1; }
+.pwa-badge-summary .total { font-size: 14px; color: var(--ink-500); }
+.pwa-badge-summary .pwa-streak { margin-left: auto; font-size: 13px; color: var(--ink-500); }
+.pwa-badge-grid { margin: 12px 0 24px; }
