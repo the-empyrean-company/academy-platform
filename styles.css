@@ -1815,6 +1815,19 @@ button.ghost:hover { border-color: var(--brand-600); background: var(--brand-50)
 }
 .modal .error { color: var(--bad); font-size: 13px; margin-top: 12px; min-height: 18px; }
 .modal .actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+.auth-tabs {
+  display: flex;
+  border-bottom: 1.5px solid var(--border);
+  margin: 16px 0 4px;
+}
+.auth-tab {
+  flex: 1; padding: 10px 0;
+  background: none; border: none; border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px; font: inherit; font-size: 14px; font-weight: 500;
+  color: var(--ink-500); cursor: pointer; transition: color .15s, border-color .15s;
+}
+.auth-tab:hover { color: var(--ink-900); }
+.auth-tab.active { color: var(--brand-900); border-bottom-color: var(--brand-600); }
 .modal .actions .primary[disabled] {
   opacity: 0.45;
   cursor: not-allowed;
