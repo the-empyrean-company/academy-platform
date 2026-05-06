@@ -5,9 +5,10 @@ CREATE TABLE IF NOT EXISTS learners (
   role           TEXT,
   company        TEXT,
   company_domain TEXT,
-  session_token  TEXT,
-  created_at     TEXT DEFAULT (datetime('now')),
-  last_active_at TEXT DEFAULT (datetime('now'))
+  session_token              TEXT,
+  created_at                 TEXT DEFAULT (datetime('now')),
+  last_active_at             TEXT DEFAULT (datetime('now')),
+  notifications_last_read_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS lesson_progress (

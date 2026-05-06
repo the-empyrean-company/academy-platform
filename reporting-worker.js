@@ -142,6 +142,10 @@ export default {
       if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
       return handleUpsertBlock(request, env);
     }
+    if (path === "/progress/notifications-read" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertNotificationsRead(request, env);
+    }
     if (path === "/progress" && request.method === "GET") {
       return handleGetProgress(request, env);
     }
@@ -570,7 +574,7 @@ function extractBearer(request) {
 async function verifyLearnerToken(env, token) {
   if (!token || !env.DB) return null;
   return await env.DB.prepare(
-    `SELECT id, email, company_domain FROM learners WHERE session_token = ?`
+    `SELECT id, email, company_domain, notifications_last_read_at FROM learners WHERE session_token = ?`
   ).bind(token).first();
 }
 
@@ -656,6 +660,19 @@ async function handleUpsertBlock(request, env) {
   return json({ ok: true }, 200, request);
 }
 
+async function handleUpsertNotificationsRead(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const at = String(body?.at || new Date().toISOString());
+  await env.DB.prepare(
+    `UPDATE learners SET notifications_last_read_at = ? WHERE id = ?`
+  ).bind(at, learner.id).run();
+  return json({ ok: true }, 200, request);
+}
+
 async function handleGetProgress(request, env) {
   if (!env.DB) return json({ error: "DB not configured" }, 503, request);
   const learner = await verifyLearnerToken(env, extractBearer(request));
@@ -672,7 +689,12 @@ async function handleGetProgress(request, env) {
       `SELECT lesson_id, block_idx FROM block_progress WHERE learner_id = ?`
     ).bind(learner.id).all(),
   ]);
-  return json({ lessons: lessons.results, badges: badges.results, blocks: blocks.results }, 200, request);
+  return json({
+    lessons: lessons.results,
+    badges: badges.results,
+    blocks: blocks.results,
+    notifications_last_read_at: learner.notifications_last_read_at || null,
+  }, 200, request);
 }
 
 async function handleGetLeaderboard(request, env) {
