@@ -1352,6 +1352,7 @@ function renderCatalog() {
   crumbs.textContent = "";
   app.classList.remove("course-view");
   app.classList.remove("blocks-view");
+  app.classList.remove("badge-view");
   app.classList.add("home-view");
   document.body.classList.remove("in-course");
   const learner = getLearner();
