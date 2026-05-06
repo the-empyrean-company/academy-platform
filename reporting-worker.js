@@ -104,23 +104,11 @@ function isAllowedOrigin(request) {
   return false;
 }
 
-/* Token lifetime for the Internal session. A week is long enough that staff
-   are not constantly re-typing the password but short enough that a leaked
-   token expires before it becomes a real liability. Rotate INTERNAL_PASSWORD
-   to invalidate everything sooner. */
 const INTERNAL_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-/* Rate limit on /auth/internal. Per-IP, fixed-minute window. Five attempts
-   is well above what a legitimate staff member needs (one auth per session,
-   plus a typo or two) but cuts brute-force throughput from "thousands per
-   second" to "five per minute per IP". A determined attacker would have to
-   rotate IPs at scale, which is a different threat model.
-
-   KV is eventually consistent across edges, so a global botnet hitting many
-   POPs simultaneously could squeeze a few extra attempts through before the
-   counter propagates. For a small Academy this is acceptable; if it ever
-   matters, swap KV for a Durable Object that gives atomic counters. */
-const AUTH_RATE_LIMIT = 5;
+/* Per-IP rate limits (fixed-minute window, backed by KV). */
+const AUTH_RATE_LIMIT          = 5;   // /auth/internal
+const TUTOR_RATE_LIMIT         = 10;  // /tutor
 const AUTH_RATE_WINDOW_SECONDS = 60;
 
 export default {
@@ -131,6 +119,31 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
+
+    /* ---- AI tutor proxy ----------------------------------------------- */
+    if (path === "/tutor" && request.method === "POST") {
+      return handleTutor(request, env);
+    }
+
+    /* ---- D1 progress routes ------------------------------------------- */
+    if (path === "/learner" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertLearner(request, env);
+    }
+    if (path === "/progress/lesson" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertLesson(request, env);
+    }
+    if (path === "/progress/badge" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertBadge(request, env);
+    }
+    if (path === "/progress" && request.method === "GET") {
+      return handleGetProgress(request, env);
+    }
+    if (path === "/leaderboard" && request.method === "GET") {
+      return handleGetLeaderboard(request, env);
+    }
 
     /* ---- Internal track routes ---------------------------------------- */
     if (path === "/auth/internal" && request.method === "POST") {
@@ -382,22 +395,16 @@ async function verifyInternalToken(secret, token) {
   return payload;
 }
 
-/* Per-IP rate limiter for the auth endpoint. Increments a KV counter keyed
-   by IP + minute window; rejects with 429 once the window's count reaches
-   AUTH_RATE_LIMIT. Counters auto-expire after 2x the window so KV doesn't
-   accumulate dead keys. */
-async function checkAuthRateLimit(request, env) {
-  if (!env.VISITS_KV) return { allowed: true }; // KV not bound; skip silently
+/* Generic per-IP rate limiter. Keyed by namespace + IP + minute window in KV.
+   Returns { allowed: true } or { allowed: false, retryAfter: seconds }. */
+async function checkRateLimit(request, env, namespace, limit, windowSeconds) {
+  if (!env.VISITS_KV) return { allowed: true };
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  const window = Math.floor(Date.now() / 1000 / AUTH_RATE_WINDOW_SECONDS);
-  const key = `ratelimit:auth:${ip}:${window}`;
+  const window = Math.floor(Date.now() / 1000 / windowSeconds);
+  const key = `ratelimit:${namespace}:${ip}:${window}`;
   const current = parseInt((await env.VISITS_KV.get(key)) || "0", 10);
-  if (current >= AUTH_RATE_LIMIT) {
-    return { allowed: false, retryAfter: AUTH_RATE_WINDOW_SECONDS };
-  }
-  await env.VISITS_KV.put(key, String(current + 1), {
-    expirationTtl: AUTH_RATE_WINDOW_SECONDS * 2,
-  });
+  if (current >= limit) return { allowed: false, retryAfter: windowSeconds };
+  await env.VISITS_KV.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
   return { allowed: true };
 }
 
@@ -409,7 +416,7 @@ async function handleInternalAuth(request, env) {
      A 429 here also means the worker did not even attempt to verify, which
      is the right signal both for legit users (back off) and attackers (you
      are throttled regardless of guess quality). */
-  const rl = await checkAuthRateLimit(request, env);
+  const rl = await checkRateLimit(request, env, "auth", AUTH_RATE_LIMIT, AUTH_RATE_WINDOW_SECONDS);
   if (!rl.allowed) {
     return new Response(
       JSON.stringify({ error: "too many attempts; try again in a minute" }),
@@ -469,6 +476,158 @@ async function handleInternalContent(request, env, path) {
       "Cache-Control": "no-store",
     },
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/* AI tutor proxy                                                              */
+/* -------------------------------------------------------------------------- */
+
+async function handleTutor(request, env) {
+  if (!env.OPENAI_API_KEY) return json({ error: "AI tutor not configured" }, 503, request);
+  const rl = await checkRateLimit(request, env, "tutor", TUTOR_RATE_LIMIT, AUTH_RATE_WINDOW_SECONDS);
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ error: "rate limit exceeded" }), {
+      status: 429,
+      headers: { ...corsHeaders(request), "Content-Type": "application/json", "Retry-After": String(rl.retryAfter) },
+    });
+  }
+  let body;
+  try { body = await request.text(); }
+  catch { return json({ error: "invalid request" }, 400, request); }
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${env.OPENAI_API_KEY}` },
+    body,
+  });
+  return new Response(await r.text(), {
+    status: r.status,
+    headers: { ...corsHeaders(request), "Content-Type": "application/json" },
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* D1 progress routes                                                         */
+/* -------------------------------------------------------------------------- */
+
+function domainFromEmail(email) {
+  const at = (email || "").indexOf("@");
+  return at >= 0 ? email.slice(at + 1).toLowerCase() : null;
+}
+
+function extractBearer(request) {
+  const auth = request.headers.get("authorization") || "";
+  return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : null;
+}
+
+/* Look up a learner row by session token. Returns null if token is missing,
+   unknown, or DB is unavailable. All progress routes call this. */
+async function verifyLearnerToken(env, token) {
+  if (!token || !env.DB) return null;
+  return await env.DB.prepare(
+    `SELECT id, email, company_domain FROM learners WHERE session_token = ?`
+  ).bind(token).first();
+}
+
+async function handleUpsertLearner(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const email = String(body?.email || "").trim().toLowerCase();
+  if (!email.includes("@")) return json({ error: "invalid email" }, 400, request);
+  const domain = domainFromEmail(email);
+
+  // Reuse an existing token so concurrent devices stay in sync.
+  // Generate one only on first registration.
+  const existing = await env.DB.prepare(
+    `SELECT session_token FROM learners WHERE email = ?`
+  ).bind(email).first();
+  const token = existing?.session_token || crypto.randomUUID();
+
+  await env.DB.prepare(
+    `INSERT INTO learners (email, name, role, company, company_domain, session_token, last_active_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(email) DO UPDATE SET
+       name           = excluded.name,
+       role           = excluded.role,
+       company        = excluded.company,
+       company_domain = excluded.company_domain,
+       session_token  = excluded.session_token,
+       last_active_at = excluded.last_active_at`
+  ).bind(email, body.name || null, body.role || null, body.company || null, domain, token).run();
+
+  return json({ ok: true, token }, 200, request);
+}
+
+async function handleUpsertLesson(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const lessonId = String(body?.lesson_id || "");
+  const moduleId = String(body?.module_id || "");
+  if (!lessonId || !moduleId) return json({ error: "missing fields" }, 400, request);
+  const completedAt = body.completed_at || new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO lesson_progress (learner_id, lesson_id, module_id, completed_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(learner_id, lesson_id) DO UPDATE SET completed_at = excluded.completed_at`
+  ).bind(learner.id, lessonId, moduleId, completedAt).run();
+  return json({ ok: true }, 200, request);
+}
+
+async function handleUpsertBadge(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const badgeId = String(body?.badge_id || "");
+  if (!badgeId) return json({ error: "missing fields" }, 400, request);
+  const earnedAt = body.earned_at || new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO badges (learner_id, badge_id, earned_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(learner_id, badge_id) DO NOTHING`
+  ).bind(learner.id, badgeId, earnedAt).run();
+  return json({ ok: true }, 200, request);
+}
+
+async function handleGetProgress(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  const [lessons, badges] = await Promise.all([
+    env.DB.prepare(
+      `SELECT lesson_id, module_id, completed_at, started_at
+       FROM lesson_progress WHERE learner_id = ?`
+    ).bind(learner.id).all(),
+    env.DB.prepare(
+      `SELECT badge_id, earned_at FROM badges WHERE learner_id = ?`
+    ).bind(learner.id).all(),
+  ]);
+  return json({ lessons: lessons.results, badges: badges.results }, 200, request);
+}
+
+async function handleGetLeaderboard(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  // Use the token-verified learner's own domain — ignore any query param to
+  // prevent enumeration of other companies' data.
+  const domain = learner.company_domain;
+  if (!domain) return json([], 200, request);
+  const rows = await env.DB.prepare(
+    `SELECT l.name, l.company,
+            COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS lessons_completed
+     FROM learners l
+     LEFT JOIN lesson_progress lp ON l.id = lp.learner_id
+     WHERE l.company_domain = ?
+     GROUP BY l.id
+     ORDER BY lessons_completed DESC, l.last_active_at DESC
+     LIMIT 10`
+  ).bind(domain).all();
+  return json(rows.results, 200, request);
 }
 
 function corsHeaders(request) {
