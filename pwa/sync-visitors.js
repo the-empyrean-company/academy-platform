@@ -135,30 +135,34 @@ if (!SYNC_TOKEN) {
     process.exit(1);
   }
 
-  // Worker returns { visits, events }; fall back to plain array for older deploys.
-  let visits, events;
+  // Worker returns { visits, events, learners }; fall back to plain array for older deploys.
+  let visits, events, learners;
   if (Array.isArray(parsed)) {
     // Legacy: older worker returned a flat array of page_view records only.
     visits = parsed;
     events = [];
+    learners = [];
   } else if (parsed && Array.isArray(parsed.visits)) {
     visits = parsed.visits;
     events = Array.isArray(parsed.events) ? parsed.events : [];
+    learners = Array.isArray(parsed.learners) ? parsed.learners : [];
   } else {
-    console.error("Unexpected response shape (expected array or {visits, events}):", JSON.stringify(parsed));
+    console.error("Unexpected response shape (expected array or {visits, events, learners}):", JSON.stringify(parsed));
     process.exit(1);
   }
 
-  // Sort both arrays newest-first.
+  // Sort newest-first.
   visits.sort((a, b) => (b.at > a.at ? 1 : -1));
   events.sort((a, b) => (b.at > a.at ? 1 : -1));
+  learners.sort((a, b) => (b.last_active_at > a.last_active_at ? 1 : -1));
 
   const output = {
     syncedAt: new Date().toISOString(),
     visits,
     events,
+    learners,
   };
 
   fs.writeFileSync(OUT_FILE, JSON.stringify(output, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${visits.length} visit(s) and ${events.length} event(s) to ${OUT_FILE}`);
+  console.log(`Wrote ${visits.length} visit(s), ${events.length} event(s), and ${learners.length} learner(s) to ${OUT_FILE}`);
 })();

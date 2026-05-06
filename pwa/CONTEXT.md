@@ -9,7 +9,7 @@ A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `in
 - **Routing**: hash-based — `#/` is the catalog, `#/course/<id>` is a module, `#/blocks` is the block library demo page. Anything else → not-found.
 - **Content hierarchy**: Learning Path → Modules → Lessons → Blocks.
 - **Block types**: `text`, `accordion`, `summary`, `quiz`, `flashcards` (alias `flipcard`), `match`, `embed`, `image`, `carousel`, `fillblanks`, `process`, `timeline`, `milestone`, `tutor`. Each has its own renderer; the dispatcher is `renderBlock()`.
-- **Persistence**: `localStorage` keys `LS_LEARNER` (role/name), `LS_COMPLETED` (finished modules), `LS_PROGRESS` (per-module completed lessons, tracked by lesson ID, not index), `LS_CONTENT_CACHE` (the assembled content bundle keyed by manifest version), `LS_INTERNAL_TOKEN` (Worker-issued session token for the Internal track), `academy.openai_key` (AI tutor key, set by the learner via the tutor block's settings cog).
+- **Persistence**: `localStorage` keys `LS_LEARNER` (role/name), `LS_COMPLETED` (finished modules), `LS_PROGRESS` (per-module completed lessons, tracked by lesson ID, not index), `LS_CONTENT_CACHE` (the assembled content bundle keyed by manifest version), `LS_INTERNAL_TOKEN` (Worker-issued session token for the Internal track), `academy.openai_key` (AI tutor key, set by the learner via the tutor block's settings cog), `academy.session_token` (UUID from D1 `/learner`; Bearer token for all progress/leaderboard calls).
 - **Completion contract**: each block renderer receives a `markDone` callback, plus an optional `ctx` argument with `{ lesson: { title, body }, course: { id, title } }` used by the AI tutor. A lesson is marked complete only when all its blocks have signaled done. The path card and progress bars are derived from this state.
 
 ## Home page
@@ -41,7 +41,7 @@ A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `in
 - **Summary** — renders key points, marks done on render.
 - **Quiz** — standard single-select radio list with custom green dots, a hidden native radio input per option (for semantics), and an explicit "Submit answer" button that's disabled until an option is picked. On submit: options lock, chosen option highlights correct/wrong, correct answer is revealed if the choice was wrong, feedback appears below, block marked done. Each quiz gets a unique `name` group so multiple quizzes on the same page don't interfere.
 - **Flashcards / Flipcard** — click-to-flip cards; marks done once half the deck has been flipped.
-- **Match** — drag terms onto definitions; Check/Reset buttons.
+- **Match** — drag terms onto definitions; Check/Reset buttons. Chips are always draggable: slot-to-slot and slot-back-to-pool both work. All drop zones use the shared `addDropZone(el, onDrop)` helper which includes the `relatedTarget` guard on `dragleave` to prevent the highlight flickering when the pointer crosses child elements.
 - **Embed** — iframe with "Mark as done" confirmation button.
 - **Image** — single image with optional caption. Marks done on render.
 - **Carousel** — `slides: [{ src, alt, caption }]` with prev/next buttons, dots, arrow-key navigation. Marks done once every slide has been viewed at least once.
@@ -106,6 +106,36 @@ A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `in
 - `LS_ACTIVITY = "academy.activity_dates"` — array of unique `YYYY-MM-DD` strings. `logActivityToday()` is called from `markLessonDone()`. `getCurrentStreak()` returns the longest run of consecutive days ending today or yesterday (a learner has until the next midnight to extend their streak).
 - `checkEngagementBadges(reason)` is the single entry point that awards badges based on the triggering action: `welcome` (profile created → `first-day`), `lesson` (lesson done → activity logged, `first-lesson` + streak badges), `module` (module done → `first-module`), `path` (full path done → `first-path`).
 
+## Login and logout
+
+- **Login gate** — `showIdentityModal()` blocks the app until the learner submits. Only a valid email is required; name, company, and role auto-fill from the address if left blank (name = part before `@`, company = domain capitalised, role = first available non-internal role). All fields remain editable. The save button enables as soon as email is entered and consent is ticked.
+- **Internal login** — unchanged: requires `@qargo.com` email + shared password, verified server-side by the Worker before a token is issued.
+- **Logout** — `logout()` function iterates all `localStorage` keys starting with `academy.` and removes them, then calls `location.reload()`. This clears the session, all progress, and forces a fresh fetch of the latest deployed code from GitHub Pages. The button lives in the profile dropdown above the Demo tools section.
+
+## D1 progress tracking
+
+The Cloudflare Worker connects to a D1 (SQLite) database (`academy-db`) for server-side progress storage. Schema lives in `schema.sql` — run `wrangler d1 execute academy-db --remote --file=schema.sql` to apply (idempotent).
+
+**Tables**: `learners`, `lesson_progress`, `badges`, `block_progress` (learner_id, lesson_id, block_idx).
+
+**Session token design** — a UUID generated once per email and stored in `learners.session_token`. The same token is returned on every subsequent login for the same email, so the same learner on different devices automatically shares progress. Token is never rotated unless explicitly cleared.
+
+**Worker routes** (all require `Authorization: Bearer <session_token>` except `/learner`):
+- `POST /learner` — upsert learner row, return stable session token.
+- `POST /progress/lesson` — upsert lesson completion row.
+- `POST /progress/badge` — upsert badge row.
+- `POST /progress/block` — upsert individual block completion row.
+- `GET /progress` — return all lessons, badges, and block completions for the authenticated learner.
+- `GET /leaderboard` — return top learners by lessons completed, scoped to the token-holder's email domain (server enforces this; client cannot override it).
+
+**Block resumption** — every time a block fires `markDone`, `syncBlockToD1(lessonId, blockIdx)` writes the completion to D1 (no-op if already recorded). On boot, `loadProgressFromD1()` populates `_d1CompletedBlocks` (a `Map<lessonId, Set<blockIdx>>`). When `renderCourse` renders a lesson, any block whose index is already in `_d1CompletedBlocks` gets `markBlockDone()` called immediately after rendering — so the lesson completion counter is pre-seeded without requiring the learner to redo the interaction. Those blocks receive a `data-resumed` attribute and show a subtle "Completed in a previous session" note via CSS `::after`.
+
+**Rate limiting** — shared `checkRateLimit(request, env, namespace, limit, windowSeconds)` helper uses KV fixed-window counting. Auth endpoint: 5 req/IP/min. AI tutor: 10 req/IP/min.
+
+**Security** — `index.html` carries a `Content-Security-Policy` meta tag restricting scripts, styles, fonts, images, frames, and connections to known origins. Worker validates token ownership before every D1 read/write.
+
+**Boot sequence** — on load, if a learner exists in localStorage but has no session token, `syncLearnerToD1()` runs first, then `loadProgressFromD1()`, then `route()`. If a token already exists, it skips straight to `loadProgressFromD1()`.
+
 ## Internal track and password gate
 
 - **Profile**: a fifth role, `internal`, sits in `ROLES` next to the four customer-facing roles. It is `internalOnly: true`, which the identity modal reads to hide the option from the dropdown unless the email field already matches `INTERNAL_EMAIL_DOMAIN` (`qargo.com`). On submit, the modal re-checks the email and refuses to save if the role is internal but the email does not qualify. This is a UX guard, not a security boundary.
@@ -148,10 +178,12 @@ internal-content/                      — gated Internal track content (gitigno
   lessons/<id>.json                      Internal lessons
   push.sh                                bash script that uploads the tree to Cloudflare KV via wrangler
 
-reporting-worker.js                    — Cloudflare Worker: event reporting + Internal auth + gated Internal content
-wrangler.toml                          — Worker config + KV namespace binding + documented secrets
+reporting-worker.js                    — Cloudflare Worker: event reporting + Internal auth + gated Internal content + D1 progress
+wrangler.toml                          — Worker config + KV namespace binding + D1 binding + documented secrets
+schema.sql                             — D1 schema (learners, lesson_progress, badges); apply with wrangler d1 execute --remote
 sync-visitors.js                       — pulls reporting events from the Worker into visitors.json
 visitors.json                          — generated visitor / event dump (gitignored, local-only)
+SECURITY_AUDIT.md                      — local-only security audit report (gitignored)
 
 skills/academy-builder/SKILL.md        — local authoring skill used to draft new lessons (gitignored)
 

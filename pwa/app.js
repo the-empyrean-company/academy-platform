@@ -33,6 +33,12 @@ function getSessionToken()    { return localStorage.getItem(LS_SESSION_TOKEN) ||
 function setSessionToken(t)   { if (t) localStorage.setItem(LS_SESSION_TOKEN, t); }
 function clearSessionToken()  { localStorage.removeItem(LS_SESSION_TOKEN); }
 
+function logout() {
+  Object.keys(localStorage).filter(k => k.startsWith("academy.")).forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem("academy.privacy_consent_version");
+  location.reload();
+}
+
 /* =========================================================================
    ROLES
    From the Qargo Learning Architecture. Only Super Admin is selectable
@@ -387,7 +393,6 @@ function getLearner() {
 function setLearner(l) {
   localStorage.setItem(LS_LEARNER, JSON.stringify(l));
   renderMe();
-  checkEngagementBadges("welcome");
   syncLearnerToD1(l);
 }
 function switchProfile() {
@@ -503,14 +508,14 @@ function getEarnedBadges() {
   catch { return {}; }
 }
 function hasBadge(id) { return !!getEarnedBadges()[id]; }
-function grantBadge(id) {
+function grantBadge(id, { syncDb = true } = {}) {
   const earned = getEarnedBadges();
   if (earned[id]) return false;
   earned[id] = new Date().toISOString();
   localStorage.setItem(LS_BADGES, JSON.stringify(earned));
   const def = ENGAGEMENT_BADGES.find(b => b.id === id);
   if (def) queueBadgeCelebration(def);
-  syncBadgeToD1(id);
+  if (syncDb) syncBadgeToD1(id);
   return true;
 }
 
@@ -728,30 +733,25 @@ function renderMe() {
       </div>
 
       <div class="menu-section">
-        <div class="menu-label">Demo tools</div>
-        <button type="button" class="menu-item" data-act="finish-path">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 5c0-1.66 4-3 9-3s9 1.34 9 3"/></svg>
-          Finish learning path
+        <button type="button" class="menu-item danger" data-act="logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Log out
         </button>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-label">Demo tools</div>
         <button type="button" class="menu-item" data-act="generate-cert">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/><path d="M8 13.5h8"/></svg>
-          Generate certificate
-        </button>
-        <button type="button" class="menu-item" data-act="mid-path">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
-          Set mid-path state
+          Show certificate
         </button>
         <button type="button" class="menu-item" data-act="earn-all-badges">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
-          Earn all badges
+          Show progress badges
         </button>
         <button type="button" class="menu-item" data-act="set-streak">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
-          Set 10-day streak
-        </button>
-        <button type="button" class="menu-item" data-act="preview-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
-          Preview badge celebration
+          Show streak badges
         </button>
         <button type="button" class="menu-item danger" data-act="reset">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
@@ -823,29 +823,27 @@ function renderMe() {
 function handleDemoAction(act) {
   switch (act) {
     case "switch-profile":     switchProfile(); break;
+    case "logout":             logout(); break;
     case "reset":              demoResetProgress(); break;
     case "earn-all-badges":    demoEarnAllBadges(); break;
-    case "finish-path":        demoFinishPath(); break;
     case "generate-cert":      demoGenerateCert(); break;
-    case "set-streak":         demoSet10DayStreak(); break;
-    case "mid-path":           demoMidPathState(); break;
-    case "preview-badge":      demoPreviewBadge(); break;
+    case "set-streak":         demoEarnStreakBadges(); break;
   }
 }
 
 function demoResetProgress() {
-  if (!confirm("This clears all academy progress on this browser: completions, badges, streaks, certificate, and saved API key. Continue?")) return;
+  if (!confirm("This clears your local progress on this browser (completions, badges, streaks, certificate). Your data in the database is kept. Continue?")) return;
   [LS_COMPLETED, LS_PROGRESS, LS_BADGES, LS_ACTIVITY, LS_PATH_COMPLETED, LS_CERT_ID, LS_TUTOR_KEY].forEach(k => localStorage.removeItem(k));
   toast("Progress reset");
   route();
 }
 
 function demoEarnAllBadges() {
-  // Granting a badge auto-queues the celebration; the queue plays them
-  // back-to-back. Re-render the sidebar after the last one so the grid
-  // reflects the new state.
-  ENGAGEMENT_BADGES.forEach(b => grantBadge(b.id));
-  setTimeout(route, 600);
+  ENGAGEMENT_BADGES.filter(b => !b.id.startsWith("streak")).forEach(b => queueBadgeCelebration(b));
+}
+
+function demoEarnStreakBadges() {
+  ENGAGEMENT_BADGES.filter(b => b.id.startsWith("streak")).forEach(b => queueBadgeCelebration(b));
 }
 
 function demoFinishPath() {
@@ -1030,7 +1028,6 @@ function showIdentityModal(onDone) {
     updateHint();
   };
   roleEl.addEventListener("change", updateHint);
-  emailEl.addEventListener("input", refreshRoleOptions);
   updateHint();
   /* Consent gate. The "Start learning" / "Save" button starts disabled and
      unlocks only when the consent box is checked. Re-running the modal
@@ -1041,15 +1038,12 @@ function showIdentityModal(onDone) {
   const consentEl = document.getElementById("id-consent");
   const stampedVersion = localStorage.getItem("academy.privacy_consent_version");
   if (stampedVersion === PRIVACY_VERSION) {
-    // Returning user who already accepted the current notice: pre-tick the
-    // box so they only need to click Save. Switching the box off and on
-    // again is still allowed.
     consentEl.checked = true;
-    saveBtn.disabled = false;
+    saveBtn.disabled = !emailEl.value.trim();
   }
-  consentEl.addEventListener("change", () => {
-    saveBtn.disabled = !consentEl.checked;
-  });
+  const checkReady = () => { saveBtn.disabled = !consentEl.checked || !emailEl.value.trim(); };
+  consentEl.addEventListener("change", checkReady);
+  emailEl.addEventListener("input", () => { refreshRoleOptions(); checkReady(); });
   (isEdit ? roleEl : nameEl).focus();
   const submit = async () => {
     const name = document.getElementById("id-name").value.trim();
@@ -1058,13 +1052,14 @@ function showIdentityModal(onDone) {
     const role = roleEl.value;
     const err = document.getElementById("id-error");
     err.textContent = "";
-    if (!name || !email || !company) { err.textContent = "Name, email, and company are required."; return; }
+    if (!email) { err.textContent = "Please enter your work email."; return; }
     if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Please enter a valid email."; return; }
-    if (!role) { err.textContent = "Please pick your role."; return; }
+    const resolvedName    = name    || email.split("@")[0];
+    const rawDomain       = email.split("@")[1]?.split(".")[0] || "";
+    const resolvedCompany = company || (rawDomain.charAt(0).toUpperCase() + rawDomain.slice(1));
+    const resolvedRole    = role    || ROLES.find(r => r.available && !r.internalOnly)?.id || "";
     // Final client-side guard: the Internal role requires a Qargo email.
-    // The authoritative check is the Worker password verification below;
-    // this just keeps externals from picking the role by mistake.
-    const roleDef = ROLES.find(r => r.id === role);
+    const roleDef = ROLES.find(r => r.id === (role || resolvedRole));
     if (roleDef?.internalOnly && !isInternalEmail(email)) {
       err.textContent = "The Internal profile is reserved for Qargo staff. Please use your @qargo.com email.";
       return;
@@ -1096,7 +1091,7 @@ function showIdentityModal(onDone) {
       // it cannot be reused by accident if the role is switched back.
       clearInternalToken();
     }
-    setLearner({ name, email, company, role });
+    setLearner({ name: resolvedName, email, company: resolvedCompany, role: resolvedRole });
     /* Stamp the accepted privacy notice version. Used on subsequent modal
        opens to decide whether to re-prompt: if PRIVACY_VERSION advances,
        the stored value won't match and the consent box will start
@@ -1239,6 +1234,15 @@ function syncBadgeToD1(badgeId) {
   });
 }
 
+function syncBlockToD1(lessonId, blockIdx) {
+  if (!getSessionToken()) return;
+  if (_d1CompletedBlocks.get(lessonId)?.has(blockIdx)) return;
+  d1Post("/progress/block", { lesson_id: lessonId, block_idx: blockIdx });
+}
+
+// Populated by loadProgressFromD1(). Maps lesson_id -> Set of completed block indices.
+const _d1CompletedBlocks = new Map();
+
 /* Pull server-side progress into localStorage on boot. D1 is authoritative:
    lessons/badges present in D1 but missing locally are added so progress
    restores when a learner switches device or clears their browser. */
@@ -1270,6 +1274,24 @@ async function loadProgressFromD1() {
         if (!earned[badge_id]) { earned[badge_id] = earned_at; changed = true; }
       }
       if (changed) localStorage.setItem(LS_BADGES, JSON.stringify(earned));
+    }
+    if (Array.isArray(data.blocks)) {
+      _d1CompletedBlocks.clear();
+      for (const { lesson_id, block_idx } of data.blocks) {
+        if (!_d1CompletedBlocks.has(lesson_id)) _d1CompletedBlocks.set(lesson_id, new Set());
+        _d1CompletedBlocks.get(lesson_id).add(block_idx);
+      }
+    }
+    if (data.notifications_last_read_at) {
+      const lastRead = data.notifications_last_read_at.slice(0, 10);
+      const readIds = NOTIFICATIONS.filter(n => n.at <= lastRead).map(n => n.id);
+      if (readIds.length) {
+        try {
+          const existing = getReadNotifications();
+          readIds.forEach(id => existing.add(id));
+          localStorage.setItem(LS_NOTIFICATIONS_READ, JSON.stringify([...existing]));
+        } catch (e) {}
+      }
     }
   } catch (e) { console.warn("D1 progress load failed:", e); }
 }
@@ -1340,6 +1362,7 @@ function renderCatalog() {
   crumbs.textContent = "";
   app.classList.remove("course-view");
   app.classList.remove("blocks-view");
+  app.classList.remove("badge-view");
   app.classList.add("home-view");
   document.body.classList.remove("in-course");
   const learner = getLearner();
@@ -2142,9 +2165,16 @@ function renderCourse(course) {
       const markBlockDone = () => {
         if (blockDone[bi]) return;
         blockDone[bi] = true;
+        syncBlockToD1(lesson.id, bi);
         if (blockDone.every(Boolean)) markLessonCompleteUI();
       };
       renderBlock(el, block, markBlockDone, { lesson: lessonCtx, course: { id: course.id, title: course.title } });
+      // Pre-seed from D1: if this block was completed in a previous session,
+      // count it immediately so the learner doesn't have to redo it.
+      if (!blockDone[bi] && _d1CompletedBlocks.get(lesson.id)?.has(bi)) {
+        el.dataset.resumed = "true";
+        markBlockDone();
+      }
     });
   });
 
@@ -3068,6 +3098,12 @@ function renderFlashcards(el, block, markDone) {
   });
 }
 
+function addDropZone(el, onDrop) {
+  el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("over"); });
+  el.addEventListener("dragleave", e => { if (!el.contains(e.relatedTarget)) el.classList.remove("over"); });
+  el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("over"); onDrop(e); });
+}
+
 function renderMatch(el, block, markDone) {
   el.innerHTML = `
     <span class="kind">Match</span>
@@ -3117,21 +3153,22 @@ function renderMatch(el, block, markDone) {
 
   terms.forEach(t => pool.appendChild(makeChip(t)));
 
+  addDropZone(pool, e => {
+    const idx = e.dataTransfer.getData("text/plain");
+    const chip = el.querySelector(`.chip[data-idx="${idx}"]`);
+    if (chip && !pool.contains(chip)) pool.appendChild(chip);
+  });
+
   defs.forEach(d => {
     const row = document.createElement("div");
     row.className = "target";
     row.dataset.idx = d.idx;
     row.innerHTML = `<span class="label">${escape(d.text)}</span><span class="drop-slot"></span>`;
     const slot = row.querySelector(".drop-slot");
-    row.addEventListener("dragover", e => { e.preventDefault(); row.classList.add("over"); });
-    row.addEventListener("dragleave", () => row.classList.remove("over"));
-    row.addEventListener("drop", e => {
-      e.preventDefault();
-      row.classList.remove("over");
+    addDropZone(row, e => {
       const idx = e.dataTransfer.getData("text/plain");
-      // if slot already filled, return previous chip to the pool
       if (slot.firstChild) pool.appendChild(slot.firstChild);
-      const chip = document.querySelector(`.chip[data-idx="${idx}"]`);
+      const chip = el.querySelector(`.chip[data-idx="${idx}"]`);
       if (chip) slot.appendChild(chip);
     });
     targets.appendChild(row);
@@ -3837,6 +3874,7 @@ function markAllNotificationsRead() {
       JSON.stringify(NOTIFICATIONS.map(n => n.id)),
     );
   } catch (e) {}
+  d1Post("/progress/notifications-read", { at: new Date().toISOString() });
 }
 
 function unreadNotificationCount() {
@@ -3956,6 +3994,8 @@ function openNotificationsPopover() {
   const btn = document.getElementById("notif-btn");
   if (!btn) return;
   btn.setAttribute("aria-expanded", "true");
+  markAllNotificationsRead();
+  renderNotificationsBadge();
   renderNotificationsPopover();
   setTimeout(() => {
     document.addEventListener("click", notifOutsideListener);
@@ -4022,7 +4062,7 @@ function wireNotifications() {
       // syncLearnerToD1 already fired inside setLearner(); wait for the token
       // to land before loading progress so the first boot is fully connected.
       await syncLearnerToD1(getLearner());
-      loadProgressFromD1().then(() => route());
+      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); route(); });
       startSession();
       route();
     });
