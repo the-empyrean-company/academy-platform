@@ -393,7 +393,6 @@ function getLearner() {
 function setLearner(l) {
   localStorage.setItem(LS_LEARNER, JSON.stringify(l));
   renderMe();
-  checkEngagementBadges("welcome");
   syncLearnerToD1(l);
 }
 function switchProfile() {
@@ -3983,6 +3982,8 @@ function openNotificationsPopover() {
   const btn = document.getElementById("notif-btn");
   if (!btn) return;
   btn.setAttribute("aria-expanded", "true");
+  markAllNotificationsRead();
+  renderNotificationsBadge();
   renderNotificationsPopover();
   setTimeout(() => {
     document.addEventListener("click", notifOutsideListener);
@@ -4049,7 +4050,7 @@ function wireNotifications() {
       // syncLearnerToD1 already fired inside setLearner(); wait for the token
       // to land before loading progress so the first boot is fully connected.
       await syncLearnerToD1(getLearner());
-      loadProgressFromD1().then(() => route());
+      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); route(); });
       startSession();
       route();
     });

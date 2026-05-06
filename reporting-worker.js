@@ -291,16 +291,18 @@ async function handleGetVisits(request, env) {
     return json({ error: "VISITS_KV binding not configured" }, 503, request);
   }
 
-  // Return both raw page views and learner events for the scheduled sync.
-  const [visits, events] = await Promise.all([
+  // Return KV event log plus structured D1 learner/progress data.
+  const [visits, events, learners] = await Promise.all([
     fetchKVPrefix(env, "visits:"),
     fetchKVPrefix(env, "events:"),
+    fetchLearnersFromD1(env),
   ]);
 
   visits.sort((a, b) => (b.at > a.at ? 1 : -1));
   events.sort((a, b) => (b.at > a.at ? 1 : -1));
+  learners.sort((a, b) => (b.last_active_at > a.last_active_at ? 1 : -1));
 
-  return new Response(JSON.stringify({ visits, events }), {
+  return new Response(JSON.stringify({ visits, events, learners }), {
     status: 200,
     headers: {
       ...corsHeaders(request),
@@ -318,6 +320,46 @@ async function fetchKVPrefix(env, prefix) {
     all.push(...rows);
   }
   return all;
+}
+
+async function fetchLearnersFromD1(env) {
+  if (!env.DB) return [];
+  try {
+    const [learnersRes, badgesRes] = await Promise.all([
+      env.DB.prepare(
+        `SELECT l.email, l.name, l.role, l.company, l.created_at, l.last_active_at,
+                COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS lessons_completed
+         FROM learners l
+         LEFT JOIN lesson_progress lp ON l.id = lp.learner_id
+         GROUP BY l.id`
+      ).all(),
+      env.DB.prepare(
+        `SELECT l.email, b.badge_id, b.earned_at
+         FROM badges b JOIN learners l ON l.id = b.learner_id`
+      ).all(),
+    ]);
+
+    // Index badges by email for fast lookup.
+    const badgesByEmail = {};
+    for (const { email, badge_id, earned_at } of badgesRes.results) {
+      if (!badgesByEmail[email]) badgesByEmail[email] = [];
+      badgesByEmail[email].push({ badge_id, earned_at });
+    }
+
+    return learnersRes.results.map(l => ({
+      email:             l.email,
+      name:              l.name,
+      role:              l.role,
+      company:           l.company,
+      created_at:        l.created_at,
+      last_active_at:    l.last_active_at,
+      lessons_completed: l.lessons_completed,
+      badges:            badgesByEmail[l.email] || [],
+    }));
+  } catch (e) {
+    console.error("D1 learner fetch failed:", e);
+    return [];
+  }
 }
 
 async function storeEventInKV(env, entry) {
