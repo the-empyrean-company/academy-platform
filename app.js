@@ -840,13 +840,11 @@ function demoResetProgress() {
 }
 
 function demoEarnAllBadges() {
-  ENGAGEMENT_BADGES.filter(b => !b.id.startsWith("streak")).forEach(b => grantBadge(b.id, { syncDb: false }));
-  setTimeout(route, 600);
+  ENGAGEMENT_BADGES.filter(b => !b.id.startsWith("streak")).forEach(b => queueBadgeCelebration(b));
 }
 
 function demoEarnStreakBadges() {
-  ENGAGEMENT_BADGES.filter(b => b.id.startsWith("streak")).forEach(b => grantBadge(b.id, { syncDb: false }));
-  setTimeout(route, 600);
+  ENGAGEMENT_BADGES.filter(b => b.id.startsWith("streak")).forEach(b => queueBadgeCelebration(b));
 }
 
 function demoFinishPath() {
