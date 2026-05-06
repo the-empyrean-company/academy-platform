@@ -25,6 +25,8 @@
    Management Dashboard" page above the Learners Logs database.
    ========================================================================= */
 const REPORTING_ENDPOINT = "https://academy-reporter.alvaro-avelar.workers.dev";
+const PROGRESS_ENDPOINT  = `${REPORTING_ENDPOINT}/progress`;
+const LEARNER_ENDPOINT   = `${REPORTING_ENDPOINT}/learner`;
 
 /* =========================================================================
    ROLES
@@ -353,8 +355,8 @@ function markLessonDone(moduleId, lessonId) {
   if (!p.completedLessons.includes(lessonId)) p.completedLessons.push(lessonId);
   p.lastLessonId = lessonId;
   setModuleProgress(moduleId, p);
-  // Record activity and award lesson-related engagement badges.
   checkEngagementBadges("lesson");
+  syncLessonToD1(moduleId, lessonId);
 }
 /* Path-level progress: % of unlocked-module lessons the learner has finished. */
 function getPathProgress() {
@@ -380,8 +382,8 @@ function getLearner() {
 function setLearner(l) {
   localStorage.setItem(LS_LEARNER, JSON.stringify(l));
   renderMe();
-  // Welcome — first-day badge fires the moment a profile exists.
   checkEngagementBadges("welcome");
+  syncLearnerToD1(l);
 }
 function switchProfile() {
   // Keep the existing learner pre-filled and let them change any field.
@@ -503,6 +505,7 @@ function grantBadge(id) {
   localStorage.setItem(LS_BADGES, JSON.stringify(earned));
   const def = ENGAGEMENT_BADGES.find(b => b.id === id);
   if (def) queueBadgeCelebration(def);
+  syncBadgeToD1(id);
   return true;
 }
 
@@ -1171,6 +1174,96 @@ function reportPathComplete() {
   });
 }
 
+/* ---------- D1 sync helpers ----------
+   Fire-and-forget calls to the Worker's D1 routes. A network failure never
+   blocks the lesson flow — localStorage is the primary store; D1 is the
+   server-side mirror used for cross-device sync and the leaderboard. */
+async function d1Post(path, body) {
+  if (!REPORTING_ENDPOINT) return;
+  try {
+    await fetch(`${REPORTING_ENDPOINT}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) { console.warn("D1 sync failed:", path, e); }
+}
+
+function syncLearnerToD1(learner) {
+  if (!learner?.email) return;
+  d1Post("/learner", {
+    email: learner.email,
+    name:  learner.name,
+    role:  learner.role,
+    company: learner.company,
+  });
+}
+
+function syncLessonToD1(moduleId, lessonId) {
+  const learner = getLearner();
+  if (!learner?.email) return;
+  d1Post("/progress/lesson", {
+    email:        learner.email,
+    lesson_id:    lessonId,
+    module_id:    moduleId,
+    completed_at: new Date().toISOString(),
+  });
+}
+
+function syncBadgeToD1(badgeId) {
+  const learner = getLearner();
+  if (!learner?.email) return;
+  d1Post("/progress/badge", {
+    email:     learner.email,
+    badge_id:  badgeId,
+    earned_at: new Date().toISOString(),
+  });
+}
+
+/* Pull the learner's server-side progress into localStorage. Called once on
+   boot after identity is confirmed. D1 is authoritative: any lesson/badge
+   present in D1 but not localStorage gets added locally, so progress is
+   restored when a learner switches device or clears their browser. */
+async function loadProgressFromD1() {
+  if (!REPORTING_ENDPOINT) return;
+  const learner = getLearner();
+  if (!learner?.email) return;
+  try {
+    const res = await fetch(`${PROGRESS_ENDPOINT}?email=${encodeURIComponent(learner.email)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.lessons)) {
+      for (const { lesson_id, module_id, completed_at } of data.lessons) {
+        if (!completed_at) continue;
+        const p = getModuleProgress(module_id);
+        if (!p.completedLessons.includes(lesson_id)) {
+          p.completedLessons.push(lesson_id);
+          setModuleProgress(module_id, p);
+        }
+      }
+    }
+    if (Array.isArray(data.badges)) {
+      const earned = getEarnedBadges();
+      let changed = false;
+      for (const { badge_id, earned_at } of data.badges) {
+        if (!earned[badge_id]) { earned[badge_id] = earned_at; changed = true; }
+      }
+      if (changed) localStorage.setItem(LS_BADGES, JSON.stringify(earned));
+    }
+  } catch (e) { console.warn("D1 progress load failed:", e); }
+}
+
+/* Fetch company leaderboard from D1. Returns null on any failure so the
+   caller can fall back to the static placeholder. */
+async function fetchLeaderboard(domain) {
+  if (!REPORTING_ENDPOINT || !domain) return null;
+  try {
+    const res = await fetch(`${REPORTING_ENDPOINT}/leaderboard?domain=${encodeURIComponent(domain)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
 async function reportCompletion(course) {
   const learner = getLearner();
   if (!learner) return;
@@ -1248,20 +1341,6 @@ function renderCatalog() {
     return p.completedLessons.length < moduleLessonCount(m);
   }) || unlockedModules[0] || null;
 
-  // Seeded leaderboard so the same order shows up across renders. The
-  // current learner is spliced in at row 3 when we know their name.
-  const leaderboard = [
-    { name: "Tom G.",     company: "Ashworth Logistics", score: 1840 },
-    { name: "Delphin B.",   company: "Berger Transport",   score: 1675 },
-    { name: "Liam B.", company: "NordEuro Freight",   score: 1510 },
-    { name: "Michiel M.",  company: "West Transport",    score: 1395 },
-    { name: "Lee H.",   company: "Northlane Haulage",  score: 1280 },
-  ];
-  if (learnerName) {
-    const selfScore = 520 + (Array.from(learnerName).reduce((a, c) => a + c.charCodeAt(0), 0) % 380);
-    leaderboard.splice(2, 0, { name: learnerName, company: learner?.company || "", score: selfScore, isYou: true });
-  }
-  leaderboard.sort((a, b) => b.score - a.score);
 
   const pathCtaLabel = pathStarted ? "Continue learning" : "Start learning path";
 
@@ -1595,18 +1674,9 @@ function renderCatalog() {
             <svg class="side-block-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div class="side-block-body">
-            <p class="side-sub">Top learners this month across Qargo customers.</p>
-            <ol class="leaderboard">
-              ${leaderboard.slice(0, 6).map((row, i) => `
-                <li class="${row.isYou ? "is-you" : ""}">
-                  <span class="rank">${i + 1}</span>
-                  <span class="who">
-                    <span class="nm">${escape(row.name)}${row.isYou ? ' <span class="you-chip">You</span>' : ""}</span>
-                    ${row.company ? `<span class="co">${escape(row.company)}</span>` : ""}
-                  </span>
-                  <span class="pts">${row.score.toLocaleString()} pts</span>
-                </li>
-              `).join("")}
+            <p class="side-sub">Top learners at your company.</p>
+            <ol class="leaderboard" id="leaderboard-list">
+              <li class="leaderboard-loading">Loading&hellip;</li>
             </ol>
           </div>
         </section>
@@ -1614,6 +1684,33 @@ function renderCatalog() {
     </div>
     </div>
   `;
+
+  // Populate leaderboard from D1 asynchronously so it doesn't delay first paint.
+  (async () => {
+    const ol = document.getElementById("leaderboard-list");
+    if (!ol) return;
+    const lEmail = learner?.email || "";
+    const domain = lEmail.includes("@") ? lEmail.split("@")[1].toLowerCase() : null;
+    const rows = await fetchLeaderboard(domain);
+    if (!ol.isConnected) return; // page navigated away
+    if (!rows || !rows.length) {
+      ol.innerHTML = `<li class="leaderboard-loading">No data yet — complete lessons to appear here.</li>`;
+      return;
+    }
+    const selfName = learner?.name || "";
+    ol.innerHTML = rows.map((row, i) => {
+      const isYou = selfName && row.name === selfName;
+      const pts = (row.lessons_completed || 0) * 200;
+      return `<li class="${isYou ? "is-you" : ""}">
+        <span class="rank">${i + 1}</span>
+        <span class="who">
+          <span class="nm">${escape(row.name || "—")}${isYou ? ' <span class="you-chip">You</span>' : ""}</span>
+          ${row.company ? `<span class="co">${escape(row.company)}</span>` : ""}
+        </span>
+        <span class="pts">${pts.toLocaleString()} pts</span>
+      </li>`;
+    }).join("");
+  })();
 
   // Wire up "Start Learning" and "Browse All Courses" to navigate or scroll.
   const startBtn = document.getElementById("hero-start");
@@ -3894,15 +3991,16 @@ function wireNotifications() {
     return;
   }
   if (!_l || !_l.role) {
-    // First-time visitor: after the welcome modal saves a profile, reload
-    // content so an Internal learner picks up Internal modules immediately
-    // (otherwise loadContent ran when no learner existed and skipped the
-    // internal manifest). loadContent is fail-safe for internal fetches.
     showIdentityModal(async () => {
       try { await loadContent(); }
       catch (e) { console.warn("[content] reload after first profile failed:", e.message); }
+      loadProgressFromD1().then(() => route());
       startSession();
       route();
     });
-  } else { startSession(); route(); }
+  } else {
+    loadProgressFromD1().then(() => route());
+    startSession();
+    route();
+  }
 })();
