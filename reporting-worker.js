@@ -138,6 +138,10 @@ export default {
       if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
       return handleUpsertBadge(request, env);
     }
+    if (path === "/progress/block" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertBlock(request, env);
+    }
     if (path === "/progress" && request.method === "GET") {
       return handleGetProgress(request, env);
     }
@@ -593,11 +597,28 @@ async function handleUpsertBadge(request, env) {
   return json({ ok: true }, 200, request);
 }
 
+async function handleUpsertBlock(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const lessonId = String(body?.lesson_id || "");
+  const blockIdx = Number(body?.block_idx);
+  if (!lessonId || isNaN(blockIdx)) return json({ error: "missing fields" }, 400, request);
+  await env.DB.prepare(
+    `INSERT INTO block_progress (learner_id, lesson_id, block_idx)
+     VALUES (?, ?, ?)
+     ON CONFLICT(learner_id, lesson_id, block_idx) DO NOTHING`
+  ).bind(learner.id, lessonId, blockIdx).run();
+  return json({ ok: true }, 200, request);
+}
+
 async function handleGetProgress(request, env) {
   if (!env.DB) return json({ error: "DB not configured" }, 503, request);
   const learner = await verifyLearnerToken(env, extractBearer(request));
   if (!learner) return json({ error: "unauthorized" }, 401, request);
-  const [lessons, badges] = await Promise.all([
+  const [lessons, badges, blocks] = await Promise.all([
     env.DB.prepare(
       `SELECT lesson_id, module_id, completed_at, started_at
        FROM lesson_progress WHERE learner_id = ?`
@@ -605,8 +626,11 @@ async function handleGetProgress(request, env) {
     env.DB.prepare(
       `SELECT badge_id, earned_at FROM badges WHERE learner_id = ?`
     ).bind(learner.id).all(),
+    env.DB.prepare(
+      `SELECT lesson_id, block_idx FROM block_progress WHERE learner_id = ?`
+    ).bind(learner.id).all(),
   ]);
-  return json({ lessons: lessons.results, badges: badges.results }, 200, request);
+  return json({ lessons: lessons.results, badges: badges.results, blocks: blocks.results }, 200, request);
 }
 
 async function handleGetLeaderboard(request, env) {

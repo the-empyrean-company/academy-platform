@@ -1250,6 +1250,15 @@ function syncBadgeToD1(badgeId) {
   });
 }
 
+function syncBlockToD1(lessonId, blockIdx) {
+  if (!getSessionToken()) return;
+  if (_d1CompletedBlocks.get(lessonId)?.has(blockIdx)) return;
+  d1Post("/progress/block", { lesson_id: lessonId, block_idx: blockIdx });
+}
+
+// Populated by loadProgressFromD1(). Maps lesson_id -> Set of completed block indices.
+const _d1CompletedBlocks = new Map();
+
 /* Pull server-side progress into localStorage on boot. D1 is authoritative:
    lessons/badges present in D1 but missing locally are added so progress
    restores when a learner switches device or clears their browser. */
@@ -1281,6 +1290,13 @@ async function loadProgressFromD1() {
         if (!earned[badge_id]) { earned[badge_id] = earned_at; changed = true; }
       }
       if (changed) localStorage.setItem(LS_BADGES, JSON.stringify(earned));
+    }
+    if (Array.isArray(data.blocks)) {
+      _d1CompletedBlocks.clear();
+      for (const { lesson_id, block_idx } of data.blocks) {
+        if (!_d1CompletedBlocks.has(lesson_id)) _d1CompletedBlocks.set(lesson_id, new Set());
+        _d1CompletedBlocks.get(lesson_id).add(block_idx);
+      }
     }
   } catch (e) { console.warn("D1 progress load failed:", e); }
 }
@@ -2153,9 +2169,16 @@ function renderCourse(course) {
       const markBlockDone = () => {
         if (blockDone[bi]) return;
         blockDone[bi] = true;
+        syncBlockToD1(lesson.id, bi);
         if (blockDone.every(Boolean)) markLessonCompleteUI();
       };
       renderBlock(el, block, markBlockDone, { lesson: lessonCtx, course: { id: course.id, title: course.title } });
+      // Pre-seed from D1: if this block was completed in a previous session,
+      // count it immediately so the learner doesn't have to redo it.
+      if (!blockDone[bi] && _d1CompletedBlocks.get(lesson.id)?.has(bi)) {
+        el.dataset.resumed = "true";
+        markBlockDone();
+      }
     });
   });
 
