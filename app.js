@@ -4057,6 +4057,20 @@ function wireNotifications() {
     }
     return;
   }
+  // Run after every loadProgressFromD1 so path completion is detected even
+  // when all lessons were finished in a prior session (D1 restores progress
+  // but doesn't replay the lesson-completion callbacks).
+  function afterProgressLoad() {
+    if (isPathComplete()) {
+      const wasFirstTime = setPathCompletedAtIfMissing();
+      getCertId();
+      checkEngagementBadges("path");
+      if (wasFirstTime) reportPathComplete();
+    }
+    renderNotificationsBadge();
+    route();
+  }
+
   if (!_l || !_l.role) {
     showIdentityModal(async () => {
       try { await loadContent(); }
@@ -4064,7 +4078,7 @@ function wireNotifications() {
       // syncLearnerToD1 already fired inside setLearner(); wait for the token
       // to land before loading progress so the first boot is fully connected.
       await syncLearnerToD1(getLearner());
-      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); renderNotificationsBadge(); route(); });
+      loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); afterProgressLoad(); });
       startSession();
       route();
     });
@@ -4074,7 +4088,7 @@ function wireNotifications() {
     const ensureToken = getSessionToken()
       ? Promise.resolve()
       : syncLearnerToD1(_l);
-    ensureToken.then(() => loadProgressFromD1()).then(() => { renderNotificationsBadge(); route(); });
+    ensureToken.then(() => loadProgressFromD1()).then(afterProgressLoad);
     startSession();
     route();
   }
