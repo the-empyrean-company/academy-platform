@@ -509,14 +509,14 @@ function getEarnedBadges() {
   catch { return {}; }
 }
 function hasBadge(id) { return !!getEarnedBadges()[id]; }
-function grantBadge(id) {
+function grantBadge(id, { syncDb = true } = {}) {
   const earned = getEarnedBadges();
   if (earned[id]) return false;
   earned[id] = new Date().toISOString();
   localStorage.setItem(LS_BADGES, JSON.stringify(earned));
   const def = ENGAGEMENT_BADGES.find(b => b.id === id);
   if (def) queueBadgeCelebration(def);
-  syncBadgeToD1(id);
+  if (syncDb) syncBadgeToD1(id);
   return true;
 }
 
@@ -840,12 +840,12 @@ function demoResetProgress() {
 }
 
 function demoEarnAllBadges() {
-  ENGAGEMENT_BADGES.filter(b => !b.id.startsWith("streak")).forEach(b => grantBadge(b.id));
+  ENGAGEMENT_BADGES.filter(b => !b.id.startsWith("streak")).forEach(b => grantBadge(b.id, { syncDb: false }));
   setTimeout(route, 600);
 }
 
 function demoEarnStreakBadges() {
-  ENGAGEMENT_BADGES.filter(b => b.id.startsWith("streak")).forEach(b => grantBadge(b.id));
+  ENGAGEMENT_BADGES.filter(b => b.id.startsWith("streak")).forEach(b => grantBadge(b.id, { syncDb: false }));
   setTimeout(route, 600);
 }
 
