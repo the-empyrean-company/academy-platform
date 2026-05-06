@@ -426,11 +426,17 @@ function markCompleted(courseId) {
 const LS_PATH_COMPLETED = "academy.path_completed_at";
 const LS_CERT_ID        = "academy.cert_id";
 
+function isModuleFinished(m) {
+  if (getCompleted()[m.id]) return true;
+  const lessons = lessonsOf(m);
+  if (!lessons.length) return false;
+  const completed = getModuleProgress(m.id).completedLessons;
+  return lessons.every(l => completed.includes(l.id));
+}
 function isPathComplete() {
   const unlocked = MODULES.filter(m => !m.locked && moduleLessonCount(m) > 0);
   if (!unlocked.length) return false;
-  const done = getCompleted();
-  return unlocked.every(m => !!done[m.id]);
+  return unlocked.every(isModuleFinished);
 }
 
 function getPathCompletedAt() {
