@@ -1,6 +1,6 @@
 # Qargo Academy — project context
 
-A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `index.html`; lesson content has been pulled out into a versioned `content/` tree fetched at runtime. A small Cloudflare Worker (`reporting-worker.js`) handles event reporting and now also gates an Internal track behind a shared password. Vanilla JS, no build step. Everything below reflects decisions we've locked in so far.
+A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `index.html`; lesson content has been pulled out into a versioned `content/` tree fetched at runtime. A small Cloudflare Worker (`reporting-worker.js`) handles event reporting and gates an Internal track behind per-account access control. Vanilla JS, no build step. Everything below reflects decisions we've locked in so far.
 
 ## Architecture
 
@@ -110,14 +110,14 @@ A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `in
 ## Login and logout
 
 - **Login gate** — `showIdentityModal()` blocks the app until the learner submits. Only a valid email is required; name, company, and role auto-fill from the address if left blank (name = part before `@`, company = domain capitalised, role = first available non-internal role). All fields remain editable. The save button enables as soon as email is entered and consent is ticked.
-- **Internal login** — unchanged: requires `@qargo.com` email + shared password, verified server-side by the Worker before a token is issued.
+- **Internal login** — requires `@qargo.com` email. On selecting the Internal role the frontend posts the learner's session token to `POST /auth/internal`; the Worker checks `internal_access = 1` on the `learners` row and mints a signed HMAC token if the account is authorised. No separate password is needed or shown.
 - **Logout** — `logout()` function iterates all `localStorage` keys starting with `academy.` and removes them, then calls `location.reload()`. This clears the session, all progress, and forces a fresh fetch of the latest deployed code from GitHub Pages. The button lives in the profile dropdown above the Demo tools section.
 
 ## D1 progress tracking
 
 The Cloudflare Worker connects to a D1 (SQLite) database (`academy-db`) for server-side progress storage. Schema lives in `schema.sql` — run `wrangler d1 execute academy-db --remote --file=schema.sql` to apply (idempotent).
 
-**Tables**: `learners`, `lesson_progress`, `badges`, `block_progress` (learner_id, lesson_id, block_idx).
+**Tables**: `learners`, `lesson_progress`, `badges`, `block_progress` (learner_id, lesson_id, block_idx), `internal_allowlist` (email).
 
 **Session token design** — a UUID generated once per email and stored in `learners.session_token`. The same token is returned on every subsequent login for the same email, so the same learner on different devices automatically shares progress. Token is never rotated unless explicitly cleared.
 
@@ -137,17 +137,27 @@ The Cloudflare Worker connects to a D1 (SQLite) database (`academy-db`) for serv
 
 **Boot sequence** — on load, if a learner exists in localStorage but has no session token, `syncLearnerToD1()` runs first, then `loadProgressFromD1()`, then `route()`. If a token already exists, it skips straight to `loadProgressFromD1()`.
 
-## Internal track and password gate
+## Internal track access control
 
 - **Profile**: a fifth role, `internal`, sits in `ROLES` next to the four customer-facing roles. It is `internalOnly: true`, which the identity modal reads to hide the option from the dropdown unless the email field already matches `INTERNAL_EMAIL_DOMAIN` (`qargo.com`). On submit, the modal re-checks the email and refuses to save if the role is internal but the email does not qualify. This is a UX guard, not a security boundary.
-- **Authoritative gate**: when a learner picks Internal, the modal shows a password field. On submit it POSTs to `${REPORTING_ENDPOINT}/auth/internal` with `{ password }`. The Worker compares it constant-time against `env.INTERNAL_PASSWORD`, and on match returns `{ token, expiresAt }` where the token is an HMAC-SHA256 signature of `{ scope: "internal", exp }` using `env.INTERNAL_JWT_SECRET`. The browser stores the token in `LS_INTERNAL_TOKEN`. Every Internal content fetch attaches `Authorization: Bearer <token>`. Token TTL is one week (`INTERNAL_TOKEN_TTL_SECONDS` in the Worker).
-- **Required Worker secrets**: `INTERNAL_PASSWORD` and `INTERNAL_JWT_SECRET`, both set with `wrangler secret put`. If either is missing the Worker fails closed: `/auth/internal` and `/internal/*` both return 503, leaving the public flow untouched. Rotate `INTERNAL_PASSWORD` to revoke future logins; rotate `INTERNAL_JWT_SECRET` to also instantly invalidate every existing token.
+- **Authoritative gate**: access is controlled by the `internal_access` column on the `learners` row in D1. When a learner picks the Internal role, the frontend POSTs to `${REPORTING_ENDPOINT}/auth/internal` with `Authorization: Bearer <session_token>`. The Worker looks up the learner by session token, checks `internal_access = 1`, and on success returns `{ token, expiresAt }` — an HMAC-SHA256 signature of `{ scope: "internal", exp }` signed with `env.INTERNAL_JWT_SECRET`. The browser stores it in `LS_INTERNAL_TOKEN`. Every Internal content fetch attaches `Authorization: Bearer <token>`. Token TTL is one week (`INTERNAL_TOKEN_TTL_SECONDS` in the Worker). A 403 response means the account exists but has not been granted access.
+- **Granting access**: set `internal_access = 1` on a learner row directly, or add the email to `internal_allowlist` so the flag is set automatically the next time that email registers or signs in.
+  ```bash
+  # Grant an existing account
+  wrangler d1 execute academy-db --remote \
+    --command="UPDATE learners SET internal_access=1 WHERE email='staff@qargo.com'"
+
+  # Pre-authorise before they register
+  wrangler d1 execute academy-db --remote \
+    --command="INSERT OR IGNORE INTO internal_allowlist (email) VALUES ('newstaff@qargo.com'"
+  ```
+- **`internal_allowlist` table**: a single-column table (`email TEXT PRIMARY KEY`). `handleUpsertLearner` checks it on every registration and sign-in; if the email matches, `internal_access` is set to 1 automatically. The allowlist entry persists independently of the learner row — add emails before the person creates an account.
+- **Required Worker secret**: `INTERNAL_JWT_SECRET`, set with `wrangler secret put`. If missing, `/auth/internal` and `/internal/*` return 503. Rotate it to instantly invalidate every existing Internal token. `INTERNAL_PASSWORD` is no longer used and can be removed.
 - **Worker routes**:
-  - `POST /auth/internal` — verify password, mint signed token.
-  - `GET /internal/<kind>/<id>.json` and `GET /internal/manifest.json` — read from KV under the `internal:` key prefix on the existing `VISITS_KV` namespace. Auth required. Returns 401 on missing/bad token, 404 on missing key, 503 if secrets / KV unbound. Path traversal rejected at the regex check.
+  - `POST /auth/internal` — verify session token + `internal_access`, mint signed HMAC token.
+  - `GET /internal/<kind>/<id>.json` and `GET /internal/manifest.json` — read from KV under the `internal:` key prefix. Auth required. Returns 401 on missing/bad token, 403 on unauthorised account, 404 on missing key, 503 if secrets / KV unbound. Path traversal rejected at the regex check.
   - All existing reporting routes (`POST /` for events, `GET /` for the visitor dump) are untouched.
-  - CORS now allows `Authorization` so the browser can attach the token cross-origin.
-- **Loader behaviour**: `loadContent()` only fetches the Internal manifest when `learner?.role === "internal"`. Internal-content failures (Worker down, token expired, KV miss) are non-fatal — they log a warning, leave `INTERNAL_MODULES` empty, and let the public flow continue. A 401 from any internal fetch clears the stored token so the next profile switch re-prompts. The cache key folds in the internal manifest version so switching roles or shipping new internal content invalidates a stale bundle without bumping the public version.
+- **Loader behaviour**: `loadContent()` only fetches the Internal manifest when `learner?.role === "internal"`. Internal-content failures (Worker down, token expired, KV miss) are non-fatal — they log a warning, leave `INTERNAL_MODULES` empty, and let the public flow continue. A 401 from any internal fetch clears the stored token so the next profile switch re-requests it. The cache key folds in the internal manifest version so switching roles or shipping new internal content invalidates a stale bundle without bumping the public version.
 - **Home page rendering**: when `role === "internal"`, the "Recommended for you" header swaps to "Internal training" and the path-card / cert-card slot is replaced with a single empty-state placeholder card (eyebrow `Internal track`, headline `Content is on the way`, dashed-border `path-empty` block) until `INTERNAL_MODULES` is populated. Specialised and Extra-curricular sections are unchanged.
 - **Content storage**: Internal content lives in KV under keys `internal:manifest.json`, `internal:tracks/<id>.json`, `internal:modules/<id>.json`, `internal:lessons/<id>.json`, mirroring the public `content/` tree. Upload via `wrangler kv:key put --binding VISITS_KV "internal:..." '{...}'`. Nothing is committed to git.
 
@@ -156,7 +166,7 @@ The Cloudflare Worker connects to a D1 (SQLite) database (`academy-db`) for serv
 - **Do not remove interactive blocks or structural aspects of the platform without verifying first.** This includes block renderers, the block dispatcher, progressive reveal, the lesson-transition banner, the collapsible TOC, per-block completion tracking, and the learning path > modules > lessons hierarchy.
 - **Copy avoids em dashes and stray emojis** — this was an earlier cleanup pass; keep new copy consistent.
 - **No pixel offsets for layout alignment** — prefer grid/flex auto-alignment. If pixel math starts creeping in, restructure the DOM instead.
-- **Internal-track secrets never enter the repo**. Set them via `wrangler secret put`, rotate them there. `.gitignore` blocks the usual local-secret filenames as a safety net.
+- **Internal-track secrets never enter the repo**. Set them via `wrangler secret put`, rotate them there. `.gitignore` blocks the usual local-secret filenames as a safety net. `INTERNAL_PASSWORD` is retired — only `INTERNAL_JWT_SECRET` is required.
 
 ## File layout
 
@@ -181,7 +191,7 @@ internal-content/                      — gated Internal track content (gitigno
 
 reporting-worker.js                    — Cloudflare Worker: event reporting + Internal auth + gated Internal content + D1 progress
 wrangler.toml                          — Worker config + KV namespace binding + D1 binding + documented secrets
-schema.sql                             — D1 schema (learners, lesson_progress, badges); apply with wrangler d1 execute --remote
+schema.sql                             — D1 schema (learners, lesson_progress, badges, block_progress, internal_allowlist); apply with wrangler d1 execute --remote
 sync-visitors.js                       — pulls reporting events from the Worker into visitors.json
 visitors.json                          — generated visitor / event dump (gitignored, local-only)
 SECURITY_AUDIT.md                      — local-only security audit report (gitignored)
