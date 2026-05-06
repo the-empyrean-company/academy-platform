@@ -976,7 +976,7 @@ function showIdentityModal(onDone) {
   if (isEdit) {
     back.innerHTML = `
       <div class="modal">
-        <div class="mark-lg"><img src="https://app.qargo.com/assets/Qargo_Icon.png" alt="Qargo" /></div>
+        <div class="mark-lg"><img src="qargo-icon.png" alt="Qargo" /></div>
         <h2>Edit profile</h2>
         <label for="id-name">Full name</label>
         <input id="id-name" autocomplete="name" value="${escape(existing.name || "")}" />
@@ -1069,7 +1069,7 @@ function showIdentityModal(onDone) {
   // Auth modal: sign-in / register tabs (+ set-password mode which hides the tabs)
   back.innerHTML = `
     <div class="modal">
-      <div class="mark-lg"><img src="https://app.qargo.com/assets/Qargo_Icon.png" alt="Qargo" /></div>
+      <div class="mark-lg"><img src="qargo-icon.png" alt="Qargo" /></div>
       <h2>Qargo Academy</h2>
       ${isSetPassword ? `<p class="lead">Set a password to protect your progress.</p>` : `
       <div class="auth-tabs">
