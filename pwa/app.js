@@ -3021,7 +3021,7 @@ function renderMatch(el, block, markDone) {
     targets.querySelectorAll(".target").forEach(row => {
       const chip = row.querySelector(".chip");
       row.classList.remove("correct", "wrong");
-      if (chip && block.pairs[chip.dataset.idx].definition === block.pairs[row.dataset.idx].definition) {
+      if (chip && chip.dataset.idx === row.dataset.idx) {
         row.classList.add("correct"); correct++;
       } else if (chip) {
         row.classList.add("wrong");
@@ -3409,7 +3409,7 @@ function renderMilestone(el, block, markDone) {
    key server-side. Search this file for `OPENAI_PROXY_URL` to swap.
    ========================================================================= */
 const LS_TUTOR_KEY = "academy.openai_key";
-const OPENAI_PROXY_URL = "https://academy-reporter.alvaro-avelar.workers.dev/tutor";
+const OPENAI_PROXY_URL = ""; // set this to a proxy URL to use a shared key safely
 
 function getTutorKey() { return localStorage.getItem(LS_TUTOR_KEY) || ""; }
 function setTutorKey(k) {

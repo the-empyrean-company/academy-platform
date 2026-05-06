@@ -813,7 +813,7 @@ body.in-course header .notif { display: none; }
   .course-main .block .prose { font-size: 16px; line-height: 1.7; }
   .course-main .block .prose .lead-p { font-size: 19px; }
   .course-main .block.summary-block { padding: 24px; }
-  .lesson-transition { padding: 32px 20px 100px; }
+  .lesson-transition { padding: 32px 20px; }
   .course-pin { left: 16px; bottom: 16px; max-width: calc(100vw - 32px); }
 }
 
@@ -2235,7 +2235,6 @@ button.ghost:hover { border-color: var(--brand-600); background: var(--brand-50)
   padding: 40px 28px;
   position: relative;
   overflow: hidden;
-  isolation: isolate;
 }
 .milestone-block .kind {
   background: var(--brand-600);
@@ -2287,7 +2286,6 @@ button.ghost:hover { border-color: var(--brand-600); background: var(--brand-50)
 .milestone-block .ms-confetti {
   position: absolute; inset: 0;
   pointer-events: none;
-  z-index: -1;
 }
 
 /* AI Tutor */
@@ -2576,8 +2574,6 @@ main.blocks-view { max-width: 920px; }
 .course-main .block.milestone-block {
   margin: 64px 0;
   border-radius: 20px;
-  background: linear-gradient(135deg, var(--brand-900) 0%, #1F252E 100%);
-  padding: 56px 28px 40px;
 }
 
 /* =========================================================================

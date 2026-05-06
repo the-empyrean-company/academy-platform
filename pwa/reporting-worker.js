@@ -132,11 +132,6 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    /* ---- AI tutor proxy ----------------------------------------------- */
-    if (path === "/tutor" && request.method === "POST") {
-      return handleTutor(request, env);
-    }
-
     /* ---- Internal track routes ---------------------------------------- */
     if (path === "/auth/internal" && request.method === "POST") {
       if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
@@ -473,33 +468,6 @@ async function handleInternalContent(request, env, path) {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
     },
-  });
-}
-
-/* -------------------------------------------------------------------------- */
-/* AI tutor proxy                                                              */
-/* -------------------------------------------------------------------------- */
-
-async function handleTutor(request, env) {
-  if (!env.OPENAI_API_KEY) {
-    return json({ error: "AI tutor not configured" }, 503, request);
-  }
-  let body;
-  try { body = await request.text(); }
-  catch { return json({ error: "invalid request" }, 400, request); }
-
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
-    },
-    body,
-  });
-
-  return new Response(await r.text(), {
-    status: r.status,
-    headers: { ...corsHeaders(request), "Content-Type": "application/json" },
   });
 }
 
