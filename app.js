@@ -3068,6 +3068,12 @@ function renderFlashcards(el, block, markDone) {
   });
 }
 
+function addDropZone(el, onDrop) {
+  el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("over"); });
+  el.addEventListener("dragleave", e => { if (!el.contains(e.relatedTarget)) el.classList.remove("over"); });
+  el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("over"); onDrop(e); });
+}
+
 function renderMatch(el, block, markDone) {
   el.innerHTML = `
     <span class="kind">Match</span>
@@ -3117,19 +3123,20 @@ function renderMatch(el, block, markDone) {
 
   terms.forEach(t => pool.appendChild(makeChip(t)));
 
+  addDropZone(pool, e => {
+    const idx = e.dataTransfer.getData("text/plain");
+    const chip = document.querySelector(`.chip[data-idx="${idx}"]`);
+    if (chip && !pool.contains(chip)) pool.appendChild(chip);
+  });
+
   defs.forEach(d => {
     const row = document.createElement("div");
     row.className = "target";
     row.dataset.idx = d.idx;
     row.innerHTML = `<span class="label">${escape(d.text)}</span><span class="drop-slot"></span>`;
     const slot = row.querySelector(".drop-slot");
-    row.addEventListener("dragover", e => { e.preventDefault(); row.classList.add("over"); });
-    row.addEventListener("dragleave", () => row.classList.remove("over"));
-    row.addEventListener("drop", e => {
-      e.preventDefault();
-      row.classList.remove("over");
+    addDropZone(row, e => {
       const idx = e.dataTransfer.getData("text/plain");
-      // if slot already filled, return previous chip to the pool
       if (slot.firstChild) pool.appendChild(slot.firstChild);
       const chip = document.querySelector(`.chip[data-idx="${idx}"]`);
       if (chip) slot.appendChild(chip);
