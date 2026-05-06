@@ -3882,6 +3882,12 @@ function renderNotificationsBadge() {
   const badge = document.getElementById("notif-badge");
   if (!badge) return;
   const btn = document.getElementById("notif-btn");
+  if (!getLearner()) {
+    badge.hidden = true;
+    badge.textContent = "";
+    btn?.classList.remove("has-unread");
+    return;
+  }
   const count = unreadNotificationCount();
   if (count === 0) {
     badge.hidden = true;
