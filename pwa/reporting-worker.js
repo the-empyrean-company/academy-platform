@@ -574,8 +574,31 @@ function extractBearer(request) {
 async function verifyLearnerToken(env, token) {
   if (!token || !env.DB) return null;
   return await env.DB.prepare(
-    `SELECT id, email, company_domain, notifications_last_read_at FROM learners WHERE session_token = ?`
+    `SELECT id, email, company_domain, notifications_last_read_at, password_hash FROM learners WHERE session_token = ?`
   ).bind(token).first();
+}
+
+async function hashPassword(password) {
+  const enc  = new TextEncoder();
+  const salt = crypto.randomUUID();
+  const key  = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: enc.encode(salt), iterations: 100_000, hash: "SHA-256" },
+    key, 256
+  );
+  const hash = btoa(String.fromCharCode(...new Uint8Array(bits)));
+  return { hash, salt };
+}
+
+async function verifyPassword(password, storedHash, salt) {
+  const enc  = new TextEncoder();
+  const key  = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: enc.encode(salt), iterations: 100_000, hash: "SHA-256" },
+    key, 256
+  );
+  const hash = btoa(String.fromCharCode(...new Uint8Array(bits)));
+  return hash === storedHash;
 }
 
 async function handleUpsertLearner(request, env) {
@@ -586,25 +609,80 @@ async function handleUpsertLearner(request, env) {
   if (!email.includes("@")) return json({ error: "invalid email" }, 400, request);
   const domain = domainFromEmail(email);
 
-  // Reuse an existing token so concurrent devices stay in sync.
-  // Generate one only on first registration.
-  const existing = await env.DB.prepare(
-    `SELECT session_token FROM learners WHERE email = ?`
-  ).bind(email).first();
-  const token = existing?.session_token || crypto.randomUUID();
+  // Token-auth path: if a valid session token is presented and matches the
+  // email, skip password and treat this as a profile update.
+  const bearer = extractBearer(request);
+  if (bearer) {
+    const tokenLearner = await verifyLearnerToken(env, bearer);
+    if (tokenLearner && tokenLearner.email === email) {
+      const newPassword = String(body?.password || "");
+      if (newPassword.length >= 8 && !tokenLearner.password_hash) {
+        // First-time password setup for an existing session — hash and store.
+        const { hash, salt } = await hashPassword(newPassword);
+        await env.DB.prepare(
+          `UPDATE learners
+           SET name = ?, role = ?, company = ?, company_domain = ?,
+               password_hash = ?, password_salt = ?, last_active_at = datetime('now')
+           WHERE id = ?`
+        ).bind(body.name || null, body.role || null, body.company || null, domain, hash, salt, tokenLearner.id).run();
+      } else {
+        await env.DB.prepare(
+          `UPDATE learners
+           SET name = ?, role = ?, company = ?, company_domain = ?, last_active_at = datetime('now')
+           WHERE id = ?`
+        ).bind(body.name || null, body.role || null, body.company || null, domain, tokenLearner.id).run();
+      }
+      return json({ ok: true, token: bearer }, 200, request);
+    }
+  }
 
+  // Password-auth path.
+  const password = String(body?.password || "");
+  if (password.length < 8) return json({ error: "password_required" }, 400, request);
+
+  const existing = await env.DB.prepare(
+    `SELECT id, session_token, password_hash, password_salt, name, role, company FROM learners WHERE email = ?`
+  ).bind(email).first();
+
+  if (existing?.password_hash) {
+    // Existing account with password — verify.
+    const valid = await verifyPassword(password, existing.password_hash, existing.password_salt);
+    if (!valid) return json({ error: "wrong_password" }, 401, request);
+    // Only update profile fields when the request includes them; a bare sign-in
+    // (email + password only) must not overwrite stored name/role/company with nulls.
+    if (body.name || body.role || body.company) {
+      await env.DB.prepare(
+        `UPDATE learners
+         SET name = ?, role = ?, company = ?, company_domain = ?, last_active_at = datetime('now')
+         WHERE id = ?`
+      ).bind(body.name || null, body.role || null, body.company || null, domain, existing.id).run();
+    } else {
+      await env.DB.prepare(
+        `UPDATE learners SET last_active_at = datetime('now') WHERE id = ?`
+      ).bind(existing.id).run();
+    }
+    return json({
+      ok: true,
+      token: existing.session_token,
+      profile: { name: existing.name, role: existing.role, company: existing.company },
+    }, 200, request);
+  }
+
+  // New account or existing account without a password (transition) — set password.
+  const { hash, salt } = await hashPassword(password);
+  const token = existing?.session_token || crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO learners (email, name, role, company, company_domain, session_token, last_active_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    `INSERT INTO learners (email, name, role, company, company_domain, session_token, password_hash, password_salt, last_active_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(email) DO UPDATE SET
        name           = excluded.name,
        role           = excluded.role,
        company        = excluded.company,
        company_domain = excluded.company_domain,
-       session_token  = excluded.session_token,
-       last_active_at = excluded.last_active_at`
-  ).bind(email, body.name || null, body.role || null, body.company || null, domain, token).run();
-
+       last_active_at = excluded.last_active_at,
+       password_hash  = excluded.password_hash,
+       password_salt  = excluded.password_salt`
+  ).bind(email, body.name || null, body.role || null, body.company || null, domain, token, hash, salt).run();
   return json({ ok: true, token }, 200, request);
 }
 
@@ -694,6 +772,7 @@ async function handleGetProgress(request, env) {
     badges: badges.results,
     blocks: blocks.results,
     notifications_last_read_at: learner.notifications_last_read_at || null,
+    has_password: !!learner.password_hash,
   }, 200, request);
 }
 

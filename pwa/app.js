@@ -34,7 +34,12 @@ function setSessionToken(t)   { if (t) localStorage.setItem(LS_SESSION_TOKEN, t)
 function clearSessionToken()  { localStorage.removeItem(LS_SESSION_TOKEN); }
 
 function logout() {
-  Object.keys(localStorage).filter(k => k.startsWith("academy.")).forEach(k => localStorage.removeItem(k));
+  // Keep academy.learner so the re-auth form can pre-fill email/name.
+  // Clear everything else: session token, progress, badges, activity, cache.
+  const keep = new Set(["academy.learner"]);
+  Object.keys(localStorage)
+    .filter(k => k.startsWith("academy.") && !keep.has(k))
+    .forEach(k => localStorage.removeItem(k));
   localStorage.removeItem("academy.privacy_consent_version");
   location.reload();
 }
@@ -946,11 +951,14 @@ function demoGenerateCert() {
 function showIdentityModal(onDone) {
   if (document.getElementById("id-modal")) return;
   const existing = getLearner() || {};
-  const isEdit = !!existing.name;
-  /* Build the role <option> list. Internal-only roles are filtered out
-     unless the current email value already qualifies. The list is rebuilt
-     on email input so the option appears the moment the learner types a
-     Qargo address. */
+  const hasToken = !!getSessionToken();
+  // Full profile edit: already authenticated, just updating fields.
+  const isEdit = !!existing.name && hasToken && _hasPassword;
+  // Needs to set a password: has a valid session token but no password in D1.
+  const isSetPassword = hasToken && !_hasPassword;
+  // Default to sign-in tab for returning users; register for new ones.
+  const defaultSignIn = !!(existing.email || isSetPassword);
+
   const buildRoleOptions = (currentEmail, currentRole) => ROLES.filter(r => {
     if (!r.internalOnly) return true;
     return isInternalEmail(currentEmail);
@@ -960,150 +968,316 @@ function showIdentityModal(onDone) {
     const selectedAttr = currentRole === r.id && r.available ? "selected" : "";
     return `<option value="${r.id}" ${selectedAttr} ${disabledAttr}>${escape(label)}</option>`;
   }).join("");
+
   const back = document.createElement("div");
   back.className = "modal-backdrop";
   back.id = "id-modal";
+
+  if (isEdit) {
+    back.innerHTML = `
+      <div class="modal">
+        <div class="mark-lg"><img src="https://app.qargo.com/assets/Qargo_Icon.png" alt="Qargo" /></div>
+        <h2>Edit profile</h2>
+        <label for="id-name">Full name</label>
+        <input id="id-name" autocomplete="name" value="${escape(existing.name || "")}" />
+        <label for="id-email">Work email</label>
+        <input id="id-email" type="email" autocomplete="email" value="${escape(existing.email || "")}" />
+        <label for="id-company">Company</label>
+        <input id="id-company" autocomplete="organization" value="${escape(existing.company || "")}" />
+        <label for="id-role">Your role</label>
+        <select id="id-role">
+          <option value="" ${!existing.role ? "selected" : ""} disabled>Pick the role closest to what you do</option>
+          ${buildRoleOptions(existing.email || "", existing.role)}
+        </select>
+        <div class="role-hint" id="id-role-hint"></div>
+        <div id="id-internal-row" hidden>
+          <label for="id-internal-pw">Internal access password</label>
+          <input id="id-internal-pw" type="password" autocomplete="off" placeholder="Shared with Qargo staff" />
+          <div class="role-hint">Required to unlock Internal modules. Ask your manager if you do not have it.</div>
+        </div>
+        <div class="error" id="id-error"></div>
+        <div class="actions">
+          <button class="primary" id="id-save">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(back);
+    const emailEl      = document.getElementById("id-email");
+    const roleEl       = document.getElementById("id-role");
+    const hintEl       = document.getElementById("id-role-hint");
+    const saveBtn      = document.getElementById("id-save");
+    const internalRow  = document.getElementById("id-internal-row");
+    const internalPwEl = document.getElementById("id-internal-pw");
+    const updateHint = () => {
+      const r = ROLES.find(r => r.id === roleEl.value);
+      hintEl.textContent = r ? r.blurb : "";
+      const showInternal = !!r?.internalOnly;
+      internalRow.hidden = !showInternal;
+      if (!showInternal) internalPwEl.value = "";
+    };
+    roleEl.addEventListener("change", updateHint);
+    emailEl.addEventListener("input", () => {
+      const prev = roleEl.value;
+      const ph = `<option value="" disabled ${!prev ? "selected" : ""}>Pick the role closest to what you do</option>`;
+      roleEl.innerHTML = ph + buildRoleOptions(emailEl.value.trim(), prev);
+      updateHint();
+    });
+    updateHint();
+    roleEl.focus();
+    const submitEdit = async () => {
+      const name    = document.getElementById("id-name").value.trim();
+      const email   = emailEl.value.trim();
+      const company = document.getElementById("id-company").value.trim();
+      const role    = roleEl.value;
+      const err     = document.getElementById("id-error");
+      err.textContent = "";
+      if (!email) { err.textContent = "Please enter your work email."; return; }
+      if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Please enter a valid email."; return; }
+      const rawDomain    = email.split("@")[1]?.split(".")[0] || "";
+      const resolvedName    = name    || email.split("@")[0];
+      const resolvedCompany = company || (rawDomain.charAt(0).toUpperCase() + rawDomain.slice(1));
+      const resolvedRole    = role    || ROLES.find(r => r.available && !r.internalOnly)?.id || "";
+      const roleDef = ROLES.find(r => r.id === (role || resolvedRole));
+      if (roleDef?.internalOnly && !isInternalEmail(email)) {
+        err.textContent = "The Internal profile is reserved for Qargo staff."; return;
+      }
+      if (roleDef?.internalOnly) {
+        const pw = internalPwEl.value;
+        if (!pw) { err.textContent = "Please enter the Internal access password."; return; }
+        saveBtn.disabled = true;
+        const prev = saveBtn.textContent; saveBtn.textContent = "Verifying...";
+        try { setInternalToken(await requestInternalToken(pw)); }
+        catch (e) {
+          saveBtn.disabled = false; saveBtn.textContent = prev;
+          err.textContent = e.message === "invalid password"
+            ? "That password is not correct." : `Could not reach auth service: ${e.message}`;
+          return;
+        }
+        saveBtn.disabled = false; saveBtn.textContent = prev;
+      } else { clearInternalToken(); }
+      const learnerData = { name: resolvedName, email, company: resolvedCompany, role: resolvedRole };
+      setLearner(learnerData);
+      syncLearnerToD1(learnerData);
+      back.remove();
+      if (onDone) onDone();
+    };
+    saveBtn.addEventListener("click", submitEdit);
+    back.addEventListener("keydown", e => { if (e.key === "Enter") submitEdit(); });
+    return;
+  }
+
+  // Auth modal: sign-in / register tabs (+ set-password mode which hides the tabs)
   back.innerHTML = `
     <div class="modal">
       <div class="mark-lg"><img src="https://app.qargo.com/assets/Qargo_Icon.png" alt="Qargo" /></div>
-      <h2>${isEdit ? "Switch profile" : "Welcome to Qargo Academy"}</h2>
-      <p class="lead">Tell us who you are so we can record your progress and show the right content for your role.</p>
-      <label for="id-name">Full name</label>
-      <input id="id-name" autocomplete="name" value="${escape(existing.name || "")}" />
-      <label for="id-email">Work email</label>
-      <input id="id-email" type="email" autocomplete="email" value="${escape(existing.email || "")}" />
-      <label for="id-company">Company</label>
-      <input id="id-company" autocomplete="organization" value="${escape(existing.company || "")}" />
-      <label for="id-role">Your role</label>
-      <select id="id-role">
-        <option value="" ${!existing.role ? "selected" : ""} disabled>Pick the role closest to what you do</option>
-        ${buildRoleOptions(existing.email || "", existing.role)}
-      </select>
-      <div class="role-hint" id="id-role-hint"></div>
-      <div id="id-internal-row" hidden>
-        <label for="id-internal-pw">Internal access password</label>
-        <input id="id-internal-pw" type="password" autocomplete="off"
-          placeholder="Shared with Qargo staff" />
-        <div class="role-hint">Required to unlock Internal modules. Ask your manager if you do not have it.</div>
+      <h2>Qargo Academy</h2>
+      ${isSetPassword ? `<p class="lead">Set a password to protect your progress.</p>` : `
+      <div class="auth-tabs">
+        <button class="auth-tab ${defaultSignIn ? "active" : ""}" id="tab-si">Sign in</button>
+        <button class="auth-tab ${!defaultSignIn ? "active" : ""}" id="tab-reg">Create account</button>
+      </div>`}
+
+      <div id="form-si" ${!defaultSignIn ? "hidden" : ""}>
+        <label for="si-email">Work email</label>
+        <input id="si-email" type="email" autocomplete="email" value="${escape(existing.email || "")}" ${isSetPassword ? "readonly" : ""} />
+        <label for="si-pw">Password</label>
+        <input id="si-pw" type="password" autocomplete="${isSetPassword ? "new-password" : "current-password"}" placeholder="${isSetPassword ? "8 characters minimum" : "Your password"}" />
+        <div class="error" id="si-err"></div>
+        <div class="actions">
+          <button class="primary" id="si-btn" disabled>${isSetPassword ? "Set password" : "Sign in"}</button>
+        </div>
       </div>
-      <div class="consent-row">
-        <label class="consent-label">
-          <input id="id-consent" type="checkbox" />
-          <span>I understand that the Academy will store my name, email, company, role, and learning activity to track progress and issue my certificate, processed under <a href="${escape(PRIVACY_NOTICE_URL)}" target="_blank" rel="noopener">Qargo's privacy notice</a>.</span>
-        </label>
-      </div>
-      <div class="error" id="id-error"></div>
-      <div class="actions">
-        <button class="primary" id="id-save" disabled>${isEdit ? "Save" : "Start learning"}</button>
+
+      <div id="form-reg" ${defaultSignIn ? "hidden" : ""}>
+        <label for="reg-name">Full name</label>
+        <input id="reg-name" autocomplete="name" value="${escape(existing.name || "")}" />
+        <label for="reg-email">Work email</label>
+        <input id="reg-email" type="email" autocomplete="email" value="${escape(existing.email || "")}" />
+        <label for="reg-pw">Password</label>
+        <input id="reg-pw" type="password" autocomplete="new-password" placeholder="8 characters minimum" />
+        <label for="reg-company">Company</label>
+        <input id="reg-company" autocomplete="organization" value="${escape(existing.company || "")}" />
+        <label for="reg-role">Your role</label>
+        <select id="reg-role">
+          <option value="" ${!existing.role ? "selected" : ""} disabled>Pick the role closest to what you do</option>
+          ${buildRoleOptions(existing.email || "", existing.role)}
+        </select>
+        <div class="role-hint" id="reg-role-hint"></div>
+        <div id="reg-internal-row" hidden>
+          <label for="reg-internal-pw">Internal access password</label>
+          <input id="reg-internal-pw" type="password" autocomplete="off" placeholder="Shared with Qargo staff" />
+          <div class="role-hint">Required to unlock Internal modules. Ask your manager if you do not have it.</div>
+        </div>
+        <div class="consent-row">
+          <label class="consent-label">
+            <input id="reg-consent" type="checkbox" />
+            <span>I understand that the Academy will store my name, email, company, role, and learning activity to track progress and issue my certificate, processed under <a href="${escape(PRIVACY_NOTICE_URL)}" target="_blank" rel="noopener">Qargo's privacy notice</a>.</span>
+          </label>
+        </div>
+        <div class="error" id="reg-err"></div>
+        <div class="actions">
+          <button class="primary" id="reg-btn" disabled>Start learning</button>
+        </div>
       </div>
     </div>
   `;
   document.body.appendChild(back);
-  const nameEl = document.getElementById("id-name");
-  const emailEl = document.getElementById("id-email");
-  const roleEl = document.getElementById("id-role");
-  const hintEl = document.getElementById("id-role-hint");
-  const saveBtn = document.getElementById("id-save");
-  const internalRow = document.getElementById("id-internal-row");
-  const internalPwEl = document.getElementById("id-internal-pw");
-  const updateHint = () => {
-    const r = ROLES.find(r => r.id === roleEl.value);
-    hintEl.textContent = r ? r.blurb : "";
-    // Show the password field only when Internal is the active selection.
-    // Hide and clear it otherwise so we never accidentally submit a stale
-    // password the user typed before changing their mind.
-    const showInternal = !!r?.internalOnly;
-    internalRow.hidden = !showInternal;
-    if (!showInternal) internalPwEl.value = "";
+
+  // --- Sign-in form ---
+  const siEmailEl = document.getElementById("si-email");
+  const siPwEl    = document.getElementById("si-pw");
+  const siBtnEl   = document.getElementById("si-btn");
+  const siErrEl   = document.getElementById("si-err");
+  const checkSiReady = () => {
+    siBtnEl.disabled = !/^\S+@\S+\.\S+$/.test(siEmailEl.value.trim()) || siPwEl.value.length < 8;
   };
-  /* Rebuild role options whenever the email changes so internal-only
-     options can appear / disappear without losing the current selection
-     (when it is still valid). */
-  const refreshRoleOptions = () => {
-    const prev = roleEl.value;
-    const placeholder = `<option value="" disabled ${!prev ? "selected" : ""}>Pick the role closest to what you do</option>`;
-    roleEl.innerHTML = placeholder + buildRoleOptions(emailEl.value.trim(), prev);
-    // If the previous selection is no longer offered (e.g. internal role
-    // dropped because the email was changed to a non-Qargo address), the
-    // <select> resets to the placeholder. The hint follows.
-    updateHint();
-  };
-  roleEl.addEventListener("change", updateHint);
-  updateHint();
-  /* Consent gate. The "Start learning" / "Save" button starts disabled and
-     unlocks only when the consent box is checked. Re-running the modal
-     (switch profile) requires the box again, so a learner who didn't see
-     a previous version of this notice can't sail past it. We stamp the
-     accepted PRIVACY_VERSION into localStorage on submit, which lets us
-     detect if the notice changes and re-prompt later. */
-  const consentEl = document.getElementById("id-consent");
-  const stampedVersion = localStorage.getItem("academy.privacy_consent_version");
-  if (stampedVersion === PRIVACY_VERSION) {
-    consentEl.checked = true;
-    saveBtn.disabled = !emailEl.value.trim();
-  }
-  const checkReady = () => { saveBtn.disabled = !consentEl.checked || !emailEl.value.trim(); };
-  consentEl.addEventListener("change", checkReady);
-  emailEl.addEventListener("input", () => { refreshRoleOptions(); checkReady(); });
-  (isEdit ? roleEl : nameEl).focus();
-  const submit = async () => {
-    const name = document.getElementById("id-name").value.trim();
-    const email = document.getElementById("id-email").value.trim();
-    const company = document.getElementById("id-company").value.trim();
-    const role = roleEl.value;
-    const err = document.getElementById("id-error");
-    err.textContent = "";
-    if (!email) { err.textContent = "Please enter your work email."; return; }
-    if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Please enter a valid email."; return; }
-    const resolvedName    = name    || email.split("@")[0];
-    const rawDomain       = email.split("@")[1]?.split(".")[0] || "";
-    const resolvedCompany = company || (rawDomain.charAt(0).toUpperCase() + rawDomain.slice(1));
-    const resolvedRole    = role    || ROLES.find(r => r.available && !r.internalOnly)?.id || "";
-    // Final client-side guard: the Internal role requires a Qargo email.
-    const roleDef = ROLES.find(r => r.id === (role || resolvedRole));
-    if (roleDef?.internalOnly && !isInternalEmail(email)) {
-      err.textContent = "The Internal profile is reserved for Qargo staff. Please use your @qargo.com email.";
+  siEmailEl.addEventListener("input", checkSiReady);
+  siPwEl.addEventListener("input", checkSiReady);
+  const submitSignIn = async () => {
+    const email = siEmailEl.value.trim();
+    const pw    = siPwEl.value;
+    siErrEl.textContent = "";
+    if (!/^\S+@\S+\.\S+$/.test(email)) { siErrEl.textContent = "Please enter a valid work email."; return; }
+    if (pw.length < 8) { siErrEl.textContent = "Password must be at least 8 characters."; return; }
+    siBtnEl.disabled = true;
+    const prev = siBtnEl.textContent; siBtnEl.textContent = isSetPassword ? "Saving..." : "Signing in...";
+    const result = await syncLearnerToD1({ email }, pw);
+    siBtnEl.textContent = prev;
+    if (!result.ok) {
+      siBtnEl.disabled = false;
+      siErrEl.textContent =
+        result.error === "wrong_password"    ? "Incorrect password. Try again." :
+        result.error === "password_required" ? "Password must be at least 8 characters." :
+        `Something went wrong (${result.error}). Try again or contact support.`;
       return;
     }
-    // Internal role: verify the shared password against the Worker before
-    // saving the profile. If the call fails, the modal stays open so the
-    // user can retry without losing what they typed.
-    if (roleDef?.internalOnly) {
-      const password = internalPwEl.value;
-      if (!password) { err.textContent = "Please enter the Internal access password."; return; }
-      saveBtn.disabled = true;
-      const prevLabel = saveBtn.textContent;
-      saveBtn.textContent = "Verifying...";
-      try {
-        const token = await requestInternalToken(password);
-        setInternalToken(token);
-      } catch (e) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = prevLabel;
-        err.textContent = e.message === "invalid password"
-          ? "That password is not correct. Try again or ask your manager."
-          : `Could not reach the Internal auth service: ${e.message}`;
-        return;
-      }
-      saveBtn.disabled = false;
-      saveBtn.textContent = prevLabel;
-    } else {
-      // Picking any non-internal role drops a previously stored token so
-      // it cannot be reused by accident if the role is switched back.
-      clearInternalToken();
-    }
-    setLearner({ name: resolvedName, email, company: resolvedCompany, role: resolvedRole });
-    /* Stamp the accepted privacy notice version. Used on subsequent modal
-       opens to decide whether to re-prompt: if PRIVACY_VERSION advances,
-       the stored value won't match and the consent box will start
-       unchecked again. */
-    try { localStorage.setItem("academy.privacy_consent_version", PRIVACY_VERSION); }
-    catch (e) { /* localStorage unavailable, non-fatal */ }
+    _hasPassword = true;
+    const profile = result.profile || {};
+    setLearner({
+      email,
+      name:    profile.name    || existing.name    || email.split("@")[0],
+      role:    profile.role    || existing.role    || "",
+      company: profile.company || existing.company || "",
+    });
     back.remove();
     if (onDone) onDone();
   };
-  saveBtn.addEventListener("click", submit);
-  back.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  siBtnEl.addEventListener("click", submitSignIn);
+
+  // --- Register form (not shown in set-password mode) ---
+  if (!isSetPassword) {
+    const tabSi  = document.getElementById("tab-si");
+    const tabReg = document.getElementById("tab-reg");
+    const formSi  = document.getElementById("form-si");
+    const formReg = document.getElementById("form-reg");
+    const switchTab = (toSi) => {
+      tabSi.classList.toggle("active", toSi);
+      tabReg.classList.toggle("active", !toSi);
+      formSi.hidden  = !toSi;
+      formReg.hidden = toSi;
+      (toSi ? siEmailEl : document.getElementById("reg-name")).focus();
+    };
+    tabSi.addEventListener("click",  () => switchTab(true));
+    tabReg.addEventListener("click", () => switchTab(false));
+
+    const regNameEl      = document.getElementById("reg-name");
+    const regEmailEl     = document.getElementById("reg-email");
+    const regPwEl        = document.getElementById("reg-pw");
+    const regCompanyEl   = document.getElementById("reg-company");
+    const regRoleEl      = document.getElementById("reg-role");
+    const regHintEl      = document.getElementById("reg-role-hint");
+    const regInternalRow  = document.getElementById("reg-internal-row");
+    const regInternalPwEl = document.getElementById("reg-internal-pw");
+    const regConsentEl   = document.getElementById("reg-consent");
+    const regBtnEl       = document.getElementById("reg-btn");
+    const regErrEl       = document.getElementById("reg-err");
+
+    const updateRegHint = () => {
+      const r = ROLES.find(r => r.id === regRoleEl.value);
+      regHintEl.textContent = r ? r.blurb : "";
+      const showInternal = !!r?.internalOnly;
+      regInternalRow.hidden = !showInternal;
+      if (!showInternal) regInternalPwEl.value = "";
+    };
+    regRoleEl.addEventListener("change", updateRegHint);
+    updateRegHint();
+    const refreshRegRoles = () => {
+      const prev = regRoleEl.value;
+      const ph = `<option value="" disabled ${!prev ? "selected" : ""}>Pick the role closest to what you do</option>`;
+      regRoleEl.innerHTML = ph + buildRoleOptions(regEmailEl.value.trim(), prev);
+      updateRegHint();
+    };
+    regEmailEl.addEventListener("input", () => { refreshRegRoles(); checkRegReady(); });
+    const checkRegReady = () => {
+      regBtnEl.disabled = !regNameEl.value.trim() ||
+        !/^\S+@\S+\.\S+$/.test(regEmailEl.value.trim()) ||
+        regPwEl.value.length < 8 ||
+        !regConsentEl.checked;
+    };
+    regNameEl.addEventListener("input",    checkRegReady);
+    regPwEl.addEventListener("input",      checkRegReady);
+    regConsentEl.addEventListener("change", checkRegReady);
+    const stampedVersion = localStorage.getItem("academy.privacy_consent_version");
+    if (stampedVersion === PRIVACY_VERSION) { regConsentEl.checked = true; checkRegReady(); }
+
+    const submitRegister = async () => {
+      const name    = regNameEl.value.trim();
+      const email   = regEmailEl.value.trim();
+      const pw      = regPwEl.value;
+      const company = regCompanyEl.value.trim();
+      const role    = regRoleEl.value;
+      regErrEl.textContent = "";
+      if (!name)  { regErrEl.textContent = "Please enter your name."; return; }
+      if (!/^\S+@\S+\.\S+$/.test(email)) { regErrEl.textContent = "Please enter a valid work email."; return; }
+      if (pw.length < 8) { regErrEl.textContent = "Password must be at least 8 characters."; return; }
+      const rawDomain    = email.split("@")[1]?.split(".")[0] || "";
+      const resolvedCompany = company || (rawDomain.charAt(0).toUpperCase() + rawDomain.slice(1));
+      const resolvedRole    = role || ROLES.find(r => r.available && !r.internalOnly)?.id || "";
+      const roleDef = ROLES.find(r => r.id === (role || resolvedRole));
+      if (roleDef?.internalOnly && !isInternalEmail(email)) {
+        regErrEl.textContent = "The Internal profile is reserved for Qargo staff."; return;
+      }
+      const learnerData = { name, email, company: resolvedCompany, role: resolvedRole };
+      regBtnEl.disabled = true;
+      const prev = regBtnEl.textContent; regBtnEl.textContent = "Creating account...";
+      const result = await syncLearnerToD1(learnerData, pw);
+      regBtnEl.textContent = prev;
+      if (!result.ok) {
+        regBtnEl.disabled = false;
+        regErrEl.textContent =
+          result.error === "password_required" ? "Password must be at least 8 characters." :
+          `Something went wrong (${result.error}). Try again or contact support.`;
+        return;
+      }
+      _hasPassword = true;
+      if (roleDef?.internalOnly) {
+        const ipw = regInternalPwEl.value;
+        if (!ipw) { regErrEl.textContent = "Please enter the Internal access password."; regBtnEl.disabled = false; return; }
+        regBtnEl.disabled = true; regBtnEl.textContent = "Verifying...";
+        try { setInternalToken(await requestInternalToken(ipw)); }
+        catch (e) {
+          regBtnEl.disabled = false; regBtnEl.textContent = prev;
+          regErrEl.textContent = e.message === "invalid password"
+            ? "That password is not correct." : `Could not reach auth service: ${e.message}`;
+          return;
+        }
+        regBtnEl.disabled = false; regBtnEl.textContent = prev;
+      } else { clearInternalToken(); }
+      setLearner(learnerData);
+      try { localStorage.setItem("academy.privacy_consent_version", PRIVACY_VERSION); } catch (e) {}
+      back.remove();
+      if (onDone) onDone();
+    };
+    regBtnEl.addEventListener("click", submitRegister);
+    back.addEventListener("keydown", e => {
+      if (e.key !== "Enter") return;
+      if (!formSi.hidden) submitSignIn(); else submitRegister();
+    });
+    if (defaultSignIn) siPwEl.focus(); else regNameEl.focus();
+  } else {
+    back.addEventListener("keydown", e => { if (e.key === "Enter") submitSignIn(); });
+    siPwEl.focus();
+  }
 }
 
 function toast(msg) {
@@ -1198,24 +1372,34 @@ async function d1Post(path, body) {
 
 /* Register/update the learner in D1. The Worker returns a stable session
    token that is stored locally and sent on all subsequent D1 requests. */
-async function syncLearnerToD1(learner) {
-  if (!REPORTING_ENDPOINT || !learner?.email) return;
+async function syncLearnerToD1(learner, password) {
+  if (!REPORTING_ENDPOINT || !learner?.email) return { ok: false, error: "no_endpoint" };
   try {
+    const token = getSessionToken();
+    const body = { email: learner.email };
+    if (learner.name)    body.name    = learner.name;
+    if (learner.role)    body.role    = learner.role;
+    if (learner.company) body.company = learner.company;
+    if (password)        body.password = password;
     const res = await fetch(LEARNER_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email:   learner.email,
-        name:    learner.name,
-        role:    learner.role,
-        company: learner.company,
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const data = await res.json();
       if (data.token) setSessionToken(data.token);
+      return { ok: true, profile: data.profile || null };
     }
-  } catch (e) { console.warn("D1 learner sync failed:", e); }
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data.error || (res.status === 401 ? "wrong_password" : "server_error") };
+  } catch (e) {
+    console.warn("D1 learner sync failed:", e);
+    return { ok: false, error: "network_error" };
+  }
 }
 
 function syncLessonToD1(moduleId, lessonId) {
@@ -1243,6 +1427,9 @@ function syncBlockToD1(lessonId, blockIdx) {
 
 // Populated by loadProgressFromD1(). Maps lesson_id -> Set of completed block indices.
 const _d1CompletedBlocks = new Map();
+// Set to false by loadProgressFromD1() when D1 reports no password on the account.
+// Triggers showIdentityModal() in afterProgressLoad() so existing sessions are prompted.
+let _hasPassword = true;
 
 /* Pull server-side progress into localStorage on boot. D1 is authoritative:
    lessons/badges present in D1 but missing locally are added so progress
@@ -1294,6 +1481,7 @@ async function loadProgressFromD1() {
         } catch (e) {}
       }
     }
+    if (typeof data.has_password === "boolean") _hasPassword = data.has_password;
   } catch (e) { console.warn("D1 progress load failed:", e); }
 }
 
@@ -4073,27 +4261,26 @@ function wireNotifications() {
       if (wasFirstTime) reportPathComplete();
     }
     renderNotificationsBadge();
+    if (!_hasPassword) {
+      showIdentityModal(() => route());
+      return;
+    }
     route();
   }
 
-  if (!_l || !_l.role) {
+  if (!_l || !_l.role || !getSessionToken()) {
+    // No profile, incomplete profile, or no session token (re-auth required).
+    // The modal handles both first-time registration and password re-login.
     showIdentityModal(async () => {
       try { await loadContent(); }
-      catch (e) { console.warn("[content] reload after first profile failed:", e.message); }
-      // syncLearnerToD1 already fired inside setLearner(); wait for the token
-      // to land before loading progress so the first boot is fully connected.
-      await syncLearnerToD1(getLearner());
+      catch (e) { console.warn("[content] reload after login failed:", e.message); }
+      // Token was obtained inside the modal submit; D1 progress can load now.
       loadProgressFromD1().then(() => { checkEngagementBadges("welcome"); afterProgressLoad(); });
       startSession();
       route();
     });
   } else {
-    // Existing learner: bootstrap token if not yet stored (e.g. first boot
-    // after D1 was introduced), then load server-side progress.
-    const ensureToken = getSessionToken()
-      ? Promise.resolve()
-      : syncLearnerToD1(_l);
-    ensureToken.then(() => loadProgressFromD1()).then(afterProgressLoad);
+    loadProgressFromD1().then(afterProgressLoad);
     startSession();
     route();
   }
