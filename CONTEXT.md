@@ -93,6 +93,7 @@ A SCORM-style eLearning mockup. The shell, all CSS, and all JS still live in `in
   - **Preview badge celebration** — `demoPreviewBadge()` plays the confetti overlay for a random badge without persisting it. Useful to show the celebration design.
   - **Reset all progress** — `demoResetProgress()` clears every `academy.*` localStorage key (with a confirm prompt). Returns the demo to a clean slate.
 - Menu closes on outside click, Escape, or after picking an action. Re-renders the route at the end of mutating actions so the sidebar grids and main column reflect the new state.
+- **Demo tools must never write to D1 or KV.** They are local-only showcases. Any demo function that calls `grantBadge()` or `checkEngagementBadges()` must pass `{ syncDb: false }`. Do not add `syncLessonToD1()`, `syncBadgeToD1()`, `syncBlockToD1()`, or `reportEvent()` calls inside demo functions.
 
 ## Home page two-pane scroll
 
