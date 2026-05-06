@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS learners (
   last_active_at             TEXT DEFAULT (datetime('now')),
   notifications_last_read_at TEXT,
   password_hash              TEXT,
-  password_salt              TEXT
+  password_salt              TEXT,
+  internal_access            INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS lesson_progress (
@@ -38,6 +39,10 @@ CREATE TABLE IF NOT EXISTS block_progress (
   block_idx    INTEGER NOT NULL,
   completed_at TEXT DEFAULT (datetime('now')),
   UNIQUE(learner_id, lesson_id, block_idx)
+);
+
+CREATE TABLE IF NOT EXISTS internal_allowlist (
+  email TEXT PRIMARY KEY
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_learners_token          ON learners(session_token);

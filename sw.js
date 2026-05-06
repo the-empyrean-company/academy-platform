@@ -1,4 +1,4 @@
-const CACHE = 'qargo-academy-v1';
+const CACHE = 'qargo-academy-v2';
 const SHELL = [
   '/academy-platform/pwa/',
   '/academy-platform/pwa/index.html',

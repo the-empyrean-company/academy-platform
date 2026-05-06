@@ -459,13 +459,9 @@ async function checkRateLimit(request, env, namespace, limit, windowSeconds) {
 }
 
 async function handleInternalAuth(request, env) {
-  if (!env.INTERNAL_PASSWORD || !env.INTERNAL_JWT_SECRET) {
+  if (!env.INTERNAL_JWT_SECRET) {
     return json({ error: "internal auth not configured" }, 503, request);
   }
-  /* Rate-check FIRST so failed attempts never reach the password compare.
-     A 429 here also means the worker did not even attempt to verify, which
-     is the right signal both for legit users (back off) and attackers (you
-     are throttled regardless of guess quality). */
   const rl = await checkRateLimit(request, env, "auth", AUTH_RATE_LIMIT, AUTH_RATE_WINDOW_SECONDS);
   if (!rl.allowed) {
     return new Response(
@@ -480,14 +476,9 @@ async function handleInternalAuth(request, env) {
       },
     );
   }
-  let payload;
-  try { payload = await request.json(); }
-  catch { return json({ error: "invalid JSON" }, 400, request); }
-  const password = String(payload?.password || "");
-  if (!constantTimeEqual(password, env.INTERNAL_PASSWORD)) {
-    // Generic message; do not leak whether the password was empty, too short, etc.
-    return json({ error: "invalid password" }, 401, request);
-  }
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  if (!learner.internal_access) return json({ error: "access not granted" }, 403, request);
   const exp = Math.floor(Date.now() / 1000) + INTERNAL_TOKEN_TTL_SECONDS;
   const token = await signInternalToken(env.INTERNAL_JWT_SECRET, { scope: "internal", exp });
   return json({ token, expiresAt: new Date(exp * 1000).toISOString() }, 200, request);
@@ -574,7 +565,7 @@ function extractBearer(request) {
 async function verifyLearnerToken(env, token) {
   if (!token || !env.DB) return null;
   return await env.DB.prepare(
-    `SELECT id, email, company_domain, notifications_last_read_at, password_hash FROM learners WHERE session_token = ?`
+    `SELECT id, email, company_domain, notifications_last_read_at, password_hash, internal_access FROM learners WHERE session_token = ?`
   ).bind(token).first();
 }
 
@@ -599,6 +590,18 @@ async function verifyPassword(password, storedHash, salt) {
   );
   const hash = btoa(String.fromCharCode(...new Uint8Array(bits)));
   return hash === storedHash;
+}
+
+async function grantInternalIfAllowlisted(env, email, learnerId) {
+  if (!env.DB) return;
+  const row = await env.DB.prepare(
+    `SELECT 1 FROM internal_allowlist WHERE email = ?`
+  ).bind(email).first();
+  if (row) {
+    await env.DB.prepare(
+      `UPDATE learners SET internal_access = 1 WHERE id = ?`
+    ).bind(learnerId).run();
+  }
 }
 
 async function handleUpsertLearner(request, env) {
@@ -661,6 +664,7 @@ async function handleUpsertLearner(request, env) {
         `UPDATE learners SET last_active_at = datetime('now') WHERE id = ?`
       ).bind(existing.id).run();
     }
+    await grantInternalIfAllowlisted(env, email, existing.id);
     return json({
       ok: true,
       token: existing.session_token,
@@ -671,7 +675,7 @@ async function handleUpsertLearner(request, env) {
   // New account or existing account without a password (transition) — set password.
   const { hash, salt } = await hashPassword(password);
   const token = existing?.session_token || crypto.randomUUID();
-  await env.DB.prepare(
+  const upsert = await env.DB.prepare(
     `INSERT INTO learners (email, name, role, company, company_domain, session_token, password_hash, password_salt, last_active_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(email) DO UPDATE SET
@@ -681,8 +685,10 @@ async function handleUpsertLearner(request, env) {
        company_domain = excluded.company_domain,
        last_active_at = excluded.last_active_at,
        password_hash  = excluded.password_hash,
-       password_salt  = excluded.password_salt`
-  ).bind(email, body.name || null, body.role || null, body.company || null, domain, token, hash, salt).run();
+       password_salt  = excluded.password_salt
+     RETURNING id`
+  ).bind(email, body.name || null, body.role || null, body.company || null, domain, token, hash, salt).first();
+  await grantInternalIfAllowlisted(env, email, upsert.id);
   return json({ ok: true, token }, 200, request);
 }
 
