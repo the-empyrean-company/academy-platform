@@ -1177,6 +1177,7 @@ p.lead { color: var(--ink-500); margin: 0 0 28px; font-size: 16px; max-width: 64
 }
 .leaderboard li .pts { font-weight: 700; color: var(--brand-900); font-size: 12.5px; }
 .leaderboard li.is-you { background: var(--brand-50); }
+.leaderboard li.leaderboard-loading { color: var(--ink-400); font-size: 13px; padding: 10px 0; }
 .leaderboard li.is-you .nm { color: var(--brand-900); }
 .you-chip {
   display: inline-block; margin-left: 6px;

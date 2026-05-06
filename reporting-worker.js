@@ -137,6 +137,26 @@ export default {
       return handleTutor(request, env);
     }
 
+    /* ---- D1 progress routes ------------------------------------------- */
+    if (path === "/learner" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertLearner(request, env);
+    }
+    if (path === "/progress/lesson" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertLesson(request, env);
+    }
+    if (path === "/progress/badge" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertBadge(request, env);
+    }
+    if (path === "/progress" && request.method === "GET") {
+      return handleGetProgress(request, env);
+    }
+    if (path === "/leaderboard" && request.method === "GET") {
+      return handleGetLeaderboard(request, env);
+    }
+
     /* ---- Internal track routes ---------------------------------------- */
     if (path === "/auth/internal" && request.method === "POST") {
       if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
@@ -501,6 +521,108 @@ async function handleTutor(request, env) {
     status: r.status,
     headers: { ...corsHeaders(request), "Content-Type": "application/json" },
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/* D1 progress routes                                                         */
+/* -------------------------------------------------------------------------- */
+
+function domainFromEmail(email) {
+  const at = (email || "").indexOf("@");
+  return at >= 0 ? email.slice(at + 1).toLowerCase() : null;
+}
+
+async function handleUpsertLearner(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const email = String(body?.email || "").trim().toLowerCase();
+  if (!email.includes("@")) return json({ error: "invalid email" }, 400, request);
+  const domain = domainFromEmail(email);
+  await env.DB.prepare(
+    `INSERT INTO learners (email, name, role, company, company_domain, last_active_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(email) DO UPDATE SET
+       name           = excluded.name,
+       role           = excluded.role,
+       company        = excluded.company,
+       company_domain = excluded.company_domain,
+       last_active_at = excluded.last_active_at`
+  ).bind(email, body.name || null, body.role || null, body.company || null, domain).run();
+  return json({ ok: true }, 200, request);
+}
+
+async function handleUpsertLesson(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const email = String(body?.email || "").trim().toLowerCase();
+  const lessonId = String(body?.lesson_id || "");
+  const moduleId = String(body?.module_id || "");
+  if (!email.includes("@") || !lessonId || !moduleId) return json({ error: "missing fields" }, 400, request);
+  const completedAt = body.completed_at || new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO lesson_progress (learner_id, lesson_id, module_id, completed_at)
+     VALUES ((SELECT id FROM learners WHERE email = ?), ?, ?, ?)
+     ON CONFLICT(learner_id, lesson_id) DO UPDATE SET completed_at = excluded.completed_at`
+  ).bind(email, lessonId, moduleId, completedAt).run();
+  return json({ ok: true }, 200, request);
+}
+
+async function handleUpsertBadge(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const email = String(body?.email || "").trim().toLowerCase();
+  const badgeId = String(body?.badge_id || "");
+  if (!email.includes("@") || !badgeId) return json({ error: "missing fields" }, 400, request);
+  const earnedAt = body.earned_at || new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO badges (learner_id, badge_id, earned_at)
+     VALUES ((SELECT id FROM learners WHERE email = ?), ?, ?)
+     ON CONFLICT(learner_id, badge_id) DO NOTHING`
+  ).bind(email, badgeId, earnedAt).run();
+  return json({ ok: true }, 200, request);
+}
+
+async function handleGetProgress(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const url = new URL(request.url);
+  const email = (url.searchParams.get("email") || "").trim().toLowerCase();
+  if (!email.includes("@")) return json({ error: "email required" }, 400, request);
+  const [lessons, badges] = await Promise.all([
+    env.DB.prepare(
+      `SELECT lp.lesson_id, lp.module_id, lp.completed_at, lp.started_at
+       FROM lesson_progress lp
+       JOIN learners l ON l.id = lp.learner_id
+       WHERE l.email = ?`
+    ).bind(email).all(),
+    env.DB.prepare(
+      `SELECT b.badge_id, b.earned_at
+       FROM badges b
+       JOIN learners l ON l.id = b.learner_id
+       WHERE l.email = ?`
+    ).bind(email).all(),
+  ]);
+  return json({ lessons: lessons.results, badges: badges.results }, 200, request);
+}
+
+async function handleGetLeaderboard(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const url = new URL(request.url);
+  const domain = (url.searchParams.get("domain") || "").trim().toLowerCase();
+  if (!domain) return json({ error: "domain required" }, 400, request);
+  const rows = await env.DB.prepare(
+    `SELECT l.name, l.company,
+            COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS lessons_completed
+     FROM learners l
+     LEFT JOIN lesson_progress lp ON l.id = lp.learner_id
+     WHERE l.company_domain = ?
+     GROUP BY l.id
+     ORDER BY lessons_completed DESC, l.last_active_at DESC
+     LIMIT 10`
+  ).bind(domain).all();
+  return json(rows.results, 200, request);
 }
 
 function corsHeaders(request) {
