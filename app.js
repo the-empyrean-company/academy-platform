@@ -672,23 +672,19 @@ function getCurrentStreak() {
 /* Award all badges the learner has just qualified for. Called from the
    places that move state forward — profile creation, lesson done,
    module done, path done. Idempotent — already-earned badges are no-ops. */
-function checkEngagementBadges(reason) {
+function checkEngagementBadges(reason, { syncDb = true } = {}) {
   if (!getLearner()) return;
-  grantBadge("first-day");
+  grantBadge("first-day", { syncDb });
   if (reason === "lesson") {
     logActivityToday();
-    grantBadge("first-lesson");
+    grantBadge("first-lesson", { syncDb });
     const s = getCurrentStreak();
-    if (s >= 3)  grantBadge("streak-3");
-    if (s >= 5)  grantBadge("streak-5");
-    if (s >= 10) grantBadge("streak-10");
+    if (s >= 3)  grantBadge("streak-3", { syncDb });
+    if (s >= 5)  grantBadge("streak-5", { syncDb });
+    if (s >= 10) grantBadge("streak-10", { syncDb });
   }
-  if (reason === "module") {
-    grantBadge("first-module");
-  }
-  if (reason === "path") {
-    grantBadge("first-path");
-  }
+  if (reason === "module") grantBadge("first-module", { syncDb });
+  if (reason === "path")   grantBadge("first-path", { syncDb });
 }
 
 /* Stable cert ID per learner+path. Same learner gets the same ID across refreshes. */
@@ -864,10 +860,10 @@ function demoFinishPath() {
   setPathCompletedAtIfMissing();
   getCertId();
   logActivityToday();
-  checkEngagementBadges("welcome");
-  checkEngagementBadges("lesson");
-  checkEngagementBadges("module");
-  checkEngagementBadges("path");
+  checkEngagementBadges("welcome", { syncDb: false });
+  checkEngagementBadges("lesson",  { syncDb: false });
+  checkEngagementBadges("module",  { syncDb: false });
+  checkEngagementBadges("path",    { syncDb: false });
   setTimeout(route, 200);
 }
 
@@ -887,9 +883,9 @@ function demoMidPathState() {
   });
   localStorage.setItem(LS_COMPLETED, JSON.stringify(all));
   logActivityToday();
-  checkEngagementBadges("welcome");
-  checkEngagementBadges("lesson");
-  checkEngagementBadges("module");
+  checkEngagementBadges("welcome", { syncDb: false });
+  checkEngagementBadges("lesson",  { syncDb: false });
+  checkEngagementBadges("module",  { syncDb: false });
   toast("Mid-path state set");
   setTimeout(route, 200);
 }
@@ -904,9 +900,9 @@ function demoSet10DayStreak() {
     dates.push(d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"));
   }
   localStorage.setItem(LS_ACTIVITY, JSON.stringify(dates));
-  grantBadge("streak-3");
-  grantBadge("streak-5");
-  grantBadge("streak-10");
+  grantBadge("streak-3",  { syncDb: false });
+  grantBadge("streak-5",  { syncDb: false });
+  grantBadge("streak-10", { syncDb: false });
   setTimeout(route, 200);
 }
 
@@ -935,10 +931,10 @@ function demoGenerateCert() {
   setPathCompletedAtIfMissing();
   getCertId();
   logActivityToday();
-  checkEngagementBadges("welcome");
-  checkEngagementBadges("lesson");
-  checkEngagementBadges("module");
-  checkEngagementBadges("path");
+  checkEngagementBadges("welcome", { syncDb: false });
+  checkEngagementBadges("lesson",  { syncDb: false });
+  checkEngagementBadges("module",  { syncDb: false });
+  checkEngagementBadges("path",    { syncDb: false });
   location.hash = "#/badge";
 }
 
