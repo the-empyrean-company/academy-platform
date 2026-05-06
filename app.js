@@ -27,6 +27,11 @@
 const REPORTING_ENDPOINT = "https://academy-reporter.alvaro-avelar.workers.dev";
 const PROGRESS_ENDPOINT  = `${REPORTING_ENDPOINT}/progress`;
 const LEARNER_ENDPOINT   = `${REPORTING_ENDPOINT}/learner`;
+const LS_SESSION_TOKEN   = "academy.session_token";
+
+function getSessionToken()    { return localStorage.getItem(LS_SESSION_TOKEN) || null; }
+function setSessionToken(t)   { if (t) localStorage.setItem(LS_SESSION_TOKEN, t); }
+function clearSessionToken()  { localStorage.removeItem(LS_SESSION_TOKEN); }
 
 /* =========================================================================
    ROLES
@@ -1178,32 +1183,48 @@ function reportPathComplete() {
    Fire-and-forget calls to the Worker's D1 routes. A network failure never
    blocks the lesson flow — localStorage is the primary store; D1 is the
    server-side mirror used for cross-device sync and the leaderboard. */
+/* All authenticated D1 calls attach the session token as a Bearer header.
+   Fire-and-forget: a Worker outage never blocks the lesson flow. */
 async function d1Post(path, body) {
   if (!REPORTING_ENDPOINT) return;
+  const token = getSessionToken();
   try {
     await fetch(`${REPORTING_ENDPOINT}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
     });
   } catch (e) { console.warn("D1 sync failed:", path, e); }
 }
 
-function syncLearnerToD1(learner) {
-  if (!learner?.email) return;
-  d1Post("/learner", {
-    email: learner.email,
-    name:  learner.name,
-    role:  learner.role,
-    company: learner.company,
-  });
+/* Register/update the learner in D1. The Worker returns a stable session
+   token that is stored locally and sent on all subsequent D1 requests. */
+async function syncLearnerToD1(learner) {
+  if (!REPORTING_ENDPOINT || !learner?.email) return;
+  try {
+    const res = await fetch(LEARNER_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email:   learner.email,
+        name:    learner.name,
+        role:    learner.role,
+        company: learner.company,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.token) setSessionToken(data.token);
+    }
+  } catch (e) { console.warn("D1 learner sync failed:", e); }
 }
 
 function syncLessonToD1(moduleId, lessonId) {
-  const learner = getLearner();
-  if (!learner?.email) return;
+  if (!getSessionToken()) return;
   d1Post("/progress/lesson", {
-    email:        learner.email,
     lesson_id:    lessonId,
     module_id:    moduleId,
     completed_at: new Date().toISOString(),
@@ -1211,25 +1232,25 @@ function syncLessonToD1(moduleId, lessonId) {
 }
 
 function syncBadgeToD1(badgeId) {
-  const learner = getLearner();
-  if (!learner?.email) return;
+  if (!getSessionToken()) return;
   d1Post("/progress/badge", {
-    email:     learner.email,
     badge_id:  badgeId,
     earned_at: new Date().toISOString(),
   });
 }
 
-/* Pull the learner's server-side progress into localStorage. Called once on
-   boot after identity is confirmed. D1 is authoritative: any lesson/badge
-   present in D1 but not localStorage gets added locally, so progress is
-   restored when a learner switches device or clears their browser. */
+/* Pull server-side progress into localStorage on boot. D1 is authoritative:
+   lessons/badges present in D1 but missing locally are added so progress
+   restores when a learner switches device or clears their browser. */
 async function loadProgressFromD1() {
   if (!REPORTING_ENDPOINT) return;
-  const learner = getLearner();
-  if (!learner?.email) return;
+  const token = getSessionToken();
+  if (!token) return;
   try {
-    const res = await fetch(`${PROGRESS_ENDPOINT}?email=${encodeURIComponent(learner.email)}`);
+    const res = await fetch(PROGRESS_ENDPOINT, {
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+    if (res.status === 401) { clearSessionToken(); return; }
     if (!res.ok) return;
     const data = await res.json();
     if (Array.isArray(data.lessons)) {
@@ -1253,12 +1274,17 @@ async function loadProgressFromD1() {
   } catch (e) { console.warn("D1 progress load failed:", e); }
 }
 
-/* Fetch company leaderboard from D1. Returns null on any failure so the
-   caller can fall back to the static placeholder. */
-async function fetchLeaderboard(domain) {
-  if (!REPORTING_ENDPOINT || !domain) return null;
+/* Leaderboard is gated by the session token — no token, no data.
+   The Worker ignores the domain param and uses the token to determine
+   the learner's own company, preventing enumeration of other companies. */
+async function fetchLeaderboard() {
+  if (!REPORTING_ENDPOINT) return null;
+  const token = getSessionToken();
+  if (!token) return null;
   try {
-    const res = await fetch(`${REPORTING_ENDPOINT}/leaderboard?domain=${encodeURIComponent(domain)}`);
+    const res = await fetch(`${REPORTING_ENDPOINT}/leaderboard`, {
+      headers: { "Authorization": `Bearer ${token}` },
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
@@ -1689,9 +1715,7 @@ function renderCatalog() {
   (async () => {
     const ol = document.getElementById("leaderboard-list");
     if (!ol) return;
-    const lEmail = learner?.email || "";
-    const domain = lEmail.includes("@") ? lEmail.split("@")[1].toLowerCase() : null;
-    const rows = await fetchLeaderboard(domain);
+    const rows = await fetchLeaderboard();
     if (!ol.isConnected) return; // page navigated away
     if (!rows || !rows.length) {
       ol.innerHTML = `<li class="leaderboard-loading">No data yet — complete lessons to appear here.</li>`;
@@ -3706,6 +3730,7 @@ ${lessonBody || "(no additional context provided)"}`
 function escape(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
