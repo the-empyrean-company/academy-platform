@@ -1282,6 +1282,17 @@ async function loadProgressFromD1() {
         _d1CompletedBlocks.get(lesson_id).add(block_idx);
       }
     }
+    if (data.notifications_last_read_at) {
+      const lastRead = data.notifications_last_read_at.slice(0, 10);
+      const readIds = NOTIFICATIONS.filter(n => n.at <= lastRead).map(n => n.id);
+      if (readIds.length) {
+        try {
+          const existing = getReadNotifications();
+          readIds.forEach(id => existing.add(id));
+          localStorage.setItem(LS_NOTIFICATIONS_READ, JSON.stringify([...existing]));
+        } catch (e) {}
+      }
+    }
   } catch (e) { console.warn("D1 progress load failed:", e); }
 }
 
@@ -3863,6 +3874,7 @@ function markAllNotificationsRead() {
       JSON.stringify(NOTIFICATIONS.map(n => n.id)),
     );
   } catch (e) {}
+  d1Post("/progress/notifications-read", { at: new Date().toISOString() });
 }
 
 function unreadNotificationCount() {
