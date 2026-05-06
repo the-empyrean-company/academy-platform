@@ -4019,12 +4019,20 @@ function wireNotifications() {
     showIdentityModal(async () => {
       try { await loadContent(); }
       catch (e) { console.warn("[content] reload after first profile failed:", e.message); }
+      // syncLearnerToD1 already fired inside setLearner(); wait for the token
+      // to land before loading progress so the first boot is fully connected.
+      await syncLearnerToD1(getLearner());
       loadProgressFromD1().then(() => route());
       startSession();
       route();
     });
   } else {
-    loadProgressFromD1().then(() => route());
+    // Existing learner: bootstrap token if not yet stored (e.g. first boot
+    // after D1 was introduced), then load server-side progress.
+    const ensureToken = getSessionToken()
+      ? Promise.resolve()
+      : syncLearnerToD1(_l);
+    ensureToken.then(() => loadProgressFromD1()).then(() => route());
     startSession();
     route();
   }
