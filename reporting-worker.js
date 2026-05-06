@@ -138,6 +138,14 @@ export default {
       if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
       return handleUpsertBadge(request, env);
     }
+    if (path === "/progress/block" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertBlock(request, env);
+    }
+    if (path === "/progress/notifications-read" && request.method === "POST") {
+      if (!isAllowedOrigin(request)) return json({ error: "forbidden" }, 403, request);
+      return handleUpsertNotificationsRead(request, env);
+    }
     if (path === "/progress" && request.method === "GET") {
       return handleGetProgress(request, env);
     }
@@ -287,16 +295,18 @@ async function handleGetVisits(request, env) {
     return json({ error: "VISITS_KV binding not configured" }, 503, request);
   }
 
-  // Return both raw page views and learner events for the scheduled sync.
-  const [visits, events] = await Promise.all([
+  // Return KV event log plus structured D1 learner/progress data.
+  const [visits, events, learners] = await Promise.all([
     fetchKVPrefix(env, "visits:"),
     fetchKVPrefix(env, "events:"),
+    fetchLearnersFromD1(env),
   ]);
 
   visits.sort((a, b) => (b.at > a.at ? 1 : -1));
   events.sort((a, b) => (b.at > a.at ? 1 : -1));
+  learners.sort((a, b) => (b.last_active_at > a.last_active_at ? 1 : -1));
 
-  return new Response(JSON.stringify({ visits, events }), {
+  return new Response(JSON.stringify({ visits, events, learners }), {
     status: 200,
     headers: {
       ...corsHeaders(request),
@@ -314,6 +324,46 @@ async function fetchKVPrefix(env, prefix) {
     all.push(...rows);
   }
   return all;
+}
+
+async function fetchLearnersFromD1(env) {
+  if (!env.DB) return [];
+  try {
+    const [learnersRes, badgesRes] = await Promise.all([
+      env.DB.prepare(
+        `SELECT l.email, l.name, l.role, l.company, l.created_at, l.last_active_at,
+                COUNT(CASE WHEN lp.completed_at IS NOT NULL THEN 1 END) AS lessons_completed
+         FROM learners l
+         LEFT JOIN lesson_progress lp ON l.id = lp.learner_id
+         GROUP BY l.id`
+      ).all(),
+      env.DB.prepare(
+        `SELECT l.email, b.badge_id, b.earned_at
+         FROM badges b JOIN learners l ON l.id = b.learner_id`
+      ).all(),
+    ]);
+
+    // Index badges by email for fast lookup.
+    const badgesByEmail = {};
+    for (const { email, badge_id, earned_at } of badgesRes.results) {
+      if (!badgesByEmail[email]) badgesByEmail[email] = [];
+      badgesByEmail[email].push({ badge_id, earned_at });
+    }
+
+    return learnersRes.results.map(l => ({
+      email:             l.email,
+      name:              l.name,
+      role:              l.role,
+      company:           l.company,
+      created_at:        l.created_at,
+      last_active_at:    l.last_active_at,
+      lessons_completed: l.lessons_completed,
+      badges:            badgesByEmail[l.email] || [],
+    }));
+  } catch (e) {
+    console.error("D1 learner fetch failed:", e);
+    return [];
+  }
 }
 
 async function storeEventInKV(env, entry) {
@@ -524,7 +574,7 @@ function extractBearer(request) {
 async function verifyLearnerToken(env, token) {
   if (!token || !env.DB) return null;
   return await env.DB.prepare(
-    `SELECT id, email, company_domain FROM learners WHERE session_token = ?`
+    `SELECT id, email, company_domain, notifications_last_read_at FROM learners WHERE session_token = ?`
   ).bind(token).first();
 }
 
@@ -593,11 +643,41 @@ async function handleUpsertBadge(request, env) {
   return json({ ok: true }, 200, request);
 }
 
+async function handleUpsertBlock(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const lessonId = String(body?.lesson_id || "");
+  const blockIdx = Number(body?.block_idx);
+  if (!lessonId || isNaN(blockIdx)) return json({ error: "missing fields" }, 400, request);
+  await env.DB.prepare(
+    `INSERT INTO block_progress (learner_id, lesson_id, block_idx)
+     VALUES (?, ?, ?)
+     ON CONFLICT(learner_id, lesson_id, block_idx) DO NOTHING`
+  ).bind(learner.id, lessonId, blockIdx).run();
+  return json({ ok: true }, 200, request);
+}
+
+async function handleUpsertNotificationsRead(request, env) {
+  if (!env.DB) return json({ error: "DB not configured" }, 503, request);
+  const learner = await verifyLearnerToken(env, extractBearer(request));
+  if (!learner) return json({ error: "unauthorized" }, 401, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "invalid JSON" }, 400, request); }
+  const at = String(body?.at || new Date().toISOString());
+  await env.DB.prepare(
+    `UPDATE learners SET notifications_last_read_at = ? WHERE id = ?`
+  ).bind(at, learner.id).run();
+  return json({ ok: true }, 200, request);
+}
+
 async function handleGetProgress(request, env) {
   if (!env.DB) return json({ error: "DB not configured" }, 503, request);
   const learner = await verifyLearnerToken(env, extractBearer(request));
   if (!learner) return json({ error: "unauthorized" }, 401, request);
-  const [lessons, badges] = await Promise.all([
+  const [lessons, badges, blocks] = await Promise.all([
     env.DB.prepare(
       `SELECT lesson_id, module_id, completed_at, started_at
        FROM lesson_progress WHERE learner_id = ?`
@@ -605,8 +685,16 @@ async function handleGetProgress(request, env) {
     env.DB.prepare(
       `SELECT badge_id, earned_at FROM badges WHERE learner_id = ?`
     ).bind(learner.id).all(),
+    env.DB.prepare(
+      `SELECT lesson_id, block_idx FROM block_progress WHERE learner_id = ?`
+    ).bind(learner.id).all(),
   ]);
-  return json({ lessons: lessons.results, badges: badges.results }, 200, request);
+  return json({
+    lessons: lessons.results,
+    badges: badges.results,
+    blocks: blocks.results,
+    notifications_last_read_at: learner.notifications_last_read_at || null,
+  }, 200, request);
 }
 
 async function handleGetLeaderboard(request, env) {

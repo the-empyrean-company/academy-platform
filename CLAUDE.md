@@ -17,6 +17,7 @@ wrangler deploy                                    # deploy reporting-worker.js
 wrangler secret put SYNC_TOKEN                     # gates GET / on the Worker
 wrangler secret put INTERNAL_PASSWORD              # shared staff password
 wrangler secret put INTERNAL_JWT_SECRET            # HMAC signing key
+wrangler d1 execute academy-db --remote --file=schema.sql   # apply D1 schema (idempotent)
 ```
 
 ## Syncing visitor data
@@ -43,7 +44,9 @@ cd internal-content && ./push.sh
 
 **Content hierarchy** — Learning Path → Modules → Lessons → Blocks. Each layer references the next by ID. Lesson IDs are permanent: learner progress is keyed on them, so never rename a published lesson ID.
 
-**Block system** — 14 block types: `text`, `accordion`, `summary`, `quiz`, `flashcards` (alias `flipcard`), `match`, `embed`, `image`, `carousel`, `fillblanks`, `process`, `timeline`, `milestone`, `tutor`. Each has its own renderer in `index.html`; the dispatcher is `renderBlock()`. Adding a new block type is a platform change — update the renderer first, then author content against it.
+**Block system** — 14 block types: `text`, `accordion`, `summary`, `quiz`, `flashcards` (alias `flipcard`), `match`, `embed`, `image`, `carousel`, `fillblanks`, `process`, `timeline`, `milestone`, `tutor`. Each has its own renderer in `app.js`; the dispatcher is `renderBlock()`. Adding a new block type is a platform change — update the renderer first, then author content against it.
+
+**Drag-and-drop utility** — `addDropZone(el, onDrop)` in `app.js` wires `dragover`/`dragleave`/`drop` onto any element with the `relatedTarget` fix applied (prevents the "over" class flickering when the pointer crosses child elements). Use it for any block that needs a drop target instead of writing the three listeners inline.
 
 **Completion contract** — every block renderer receives a `markDone` callback. A lesson completes only when all its blocks have fired `markDone`. Module completion requires all lessons; path completion requires all modules.
 
@@ -56,11 +59,14 @@ cd internal-content && ./push.sh
 - `academy.openai_key` — AI tutor key (set by the learner via the tutor block's settings cog)
 - `academy.badges_earned` — badge ID → ISO timestamp
 - `academy.activity_dates` — array of `YYYY-MM-DD` strings for streak tracking
+- `academy.session_token` — UUID issued by D1 `/learner` route; sent as `Authorization: Bearer` on all D1 calls
 
-**Cloudflare Worker** (`reporting-worker.js`) — handles three concerns:
+**Cloudflare Worker** (`reporting-worker.js`) — handles five concerns:
 1. Event reporting: `POST /` writes learner events to KV.
 2. Visitor dump: `GET /` (requires `SYNC_TOKEN`) returns all events for `sync-visitors.js`.
 3. Internal track gate: `POST /auth/internal` issues HMAC-signed tokens; `GET /internal/*` serves content from KV behind token auth.
+4. Learner identity: `POST /learner` upserts a learner row in D1, returns a stable UUID session token (reused across devices for the same email).
+5. Progress tracking: `POST /progress/lesson`, `POST /progress/badge`, `GET /progress`, `GET /leaderboard` — all require `Authorization: Bearer <session_token>`. Leaderboard is scoped to the learner's email domain (server-enforced, not client-supplied).
 
 **Internal track** — content lives in KV under `internal:` key prefix (not in the repo). Upload via `internal-content/push.sh`. The `internal` role is hidden from the profile dropdown unless the email domain matches `qargo.com`. Token TTL is one week; rotate `INTERNAL_JWT_SECRET` to instantly invalidate all existing tokens.
 

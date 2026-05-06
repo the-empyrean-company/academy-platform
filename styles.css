@@ -655,6 +655,15 @@ body.in-course header .notif { display: none; }
 }
 /* Accordion block: keep generous spacing but no outer shell */
 .course-main .block.accordion-block { margin: 56px 0; }
+/* Resumed blocks: completed in a previous session, pre-seeded from D1 */
+.course-main .block[data-resumed]::after {
+  content: "Completed in a previous session";
+  display: block;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--good);
+  letter-spacing: .02em;
+}
 /* Embed / quiz / match / flash: live happily without the outer card */
 
 /* Full-width lesson-transition banner that bleeds past the prose column
@@ -1684,6 +1693,7 @@ p.lead { color: var(--ink-500); margin: 0 0 28px; font-size: 16px; max-width: 64
   font-size: 12px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
 }
 .match .pool, .match .targets { display: grid; gap: 10px; }
+.match .pool.over { outline: 2px dashed var(--brand-600); border-radius: 10px; outline-offset: 4px; }
 .match .chip {
   background: var(--surface);
   border: 1.5px solid var(--border);
