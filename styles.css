@@ -3291,7 +3291,7 @@ svg.hex-diamond .diamond-sparkle.s4 { animation-duration: 2.6s; animation-delay:
     display: flex;
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    height: 56px;
+    height: 68px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--surface);
     border-top: 1px solid var(--border);
@@ -3311,7 +3311,7 @@ svg.hex-diamond .diamond-sparkle.s4 { animation-duration: 2.6s; animation-delay:
   .pwa-tab.active { color: var(--brand-600); }
   .pwa-tab.active svg { stroke: var(--brand-600); }
   /* Push main content up so it clears the nav */
-  #app { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  #app { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
   /* Hide header search + breadcrumbs on PWA home — save vertical space */
   body.pwa-home #search-wrap,
   body.pwa-home .crumbs { display: none; }
@@ -3329,6 +3329,23 @@ svg.hex-diamond .diamond-sparkle.s4 { animation-duration: 2.6s; animation-delay:
 .pwa-badge-summary .total { font-size: 14px; color: var(--ink-500); }
 .pwa-badge-summary .pwa-streak { margin-left: auto; font-size: 13px; color: var(--ink-500); }
 .pwa-badge-grid { margin: 12px 0 24px; }
+
+/* ---- Achievements list (PWA badges page) ---- */
+.ach-list { display: flex; flex-direction: column; margin-top: 8px; }
+.ach-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 0; border-bottom: 1px solid var(--border);
+}
+.ach-row:last-child { border-bottom: none; }
+.ach-icon { width: 44px; height: 44px; flex: none; display: flex; align-items: center; justify-content: center; }
+.ach-icon svg { width: 44px; height: 44px; }
+.ach-icon-cert { width: 44px; height: 44px; }
+.ach-locked .ach-icon { opacity: 0.3; filter: grayscale(1); }
+.ach-body { flex: 1; min-width: 0; }
+.ach-name { font-size: 14px; font-weight: 600; color: var(--ink-900); }
+.ach-locked .ach-name { color: var(--ink-500); }
+.ach-desc { font-size: 12px; color: var(--ink-500); margin-top: 2px; line-height: 1.4; }
+.ach-status { flex: none; width: 24px; display: flex; align-items: center; justify-content: center; }
 
 /* ---- Standalone leaderboard page (PWA nav) ---- */
 .pwa-lb { display: flex; flex-direction: column; min-height: 100%; }
