@@ -1623,17 +1623,40 @@ function renderBadgesPage() {
   const earnedCount = ENGAGEMENT_BADGES.filter(b => earnedBadges[b.id]).length + (pathComplete ? 1 : 0);
   const totalCount  = ENGAGEMENT_BADGES.length + 1;
 
-  const badgeHexes = ENGAGEMENT_BADGES.map(b => {
+  const checkIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-600)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const lockIcon  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+  const badgeRows = ENGAGEMENT_BADGES.map(b => {
     const earned = !!earnedBadges[b.id];
     const glow = earned ? `--hex-glow: ${b.c2}66;` : "";
-    return `<div class="hex-badge ${earned ? "earned" : "locked"}" style="${glow}" title="${escape(b.title)}${earned ? " — earned" : ""}\n${escape(b.desc)}">
-      ${buildHexBadgeSVG(b)}
-    </div>`;
+    return `
+      <div class="ach-row ${earned ? "ach-earned" : "ach-locked"}">
+        <div class="ach-icon" style="${glow}">${buildHexBadgeSVG(b)}</div>
+        <div class="ach-body">
+          <div class="ach-name">${escape(b.title)}</div>
+          <div class="ach-desc">${escape(b.desc)}</div>
+        </div>
+        <div class="ach-status">${earned ? checkIcon : lockIcon}</div>
+      </div>`;
   }).join("");
+
+  const certRow = `
+    <div class="ach-row ${pathComplete ? "ach-earned" : "ach-locked"}">
+      <div class="ach-icon ach-icon-cert">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="${pathComplete ? "var(--brand-600)" : "var(--ink-300)"}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+      </div>
+      <div class="ach-body">
+        <div class="ach-name">LinkedIn certificate</div>
+        <div class="ach-desc">${pathComplete
+          ? `<a href="#/badge" style="color:var(--brand-700);font-weight:600;">View certificate &rarr;</a>`
+          : "Finish all modules to earn your shareable certificate."}</div>
+      </div>
+      <div class="ach-status">${pathComplete ? checkIcon : lockIcon}</div>
+    </div>`;
 
   app.innerHTML = `
     <div class="pwa-page">
-      <h1 class="pwa-page-title">Badges</h1>
+      <h1 class="pwa-page-title">Achievements</h1>
       <div class="pwa-badge-summary">
         <span class="num">${earnedCount}</span>
         <span class="total">of ${totalCount} earned</span>
@@ -1641,19 +1664,9 @@ function renderBadgesPage() {
           ? `<span class="pwa-streak">🔥 ${streak}-day streak</span>`
           : `<span class="pwa-streak">No active streak yet</span>`}
       </div>
-      <div class="b-section-label">Milestones</div>
-      <div class="grid eng-grid pwa-badge-grid">${badgeHexes}</div>
-      <div class="b-cert ${pathComplete ? "earned" : "locked"}">
-        <span class="b-cert-icon">${pathComplete
-          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg>`
-          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`}
-        </span>
-        <div class="b-cert-text">
-          <strong>LinkedIn certificate</strong>
-          ${pathComplete
-            ? `<a href="#/badge" style="color:var(--brand-700);font-weight:600;">View &rarr;</a>`
-            : `<span>Awarded for full-path completion</span>`}
-        </div>
+      <div class="ach-list">
+        ${badgeRows}
+        ${certRow}
       </div>
     </div>
   `;
